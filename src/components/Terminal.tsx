@@ -241,15 +241,17 @@ Use live web data, recent headlines, exchange flow, sentiment, and chart-based l
 
 • 💡 View: Bullish/Bearish/Neutral → [Concise directional bias with technical and sentiment justification. Be specific.]
 • 🎯 Entry Zone: $___ to $___ → [Key support or structure area to enter.]
-• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ (optional)
+• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE TAKE PROFITS ARE MANDATORY - provide specific price levels]
 • 🛑 Stop Loss: $___ (or "15m close below $___") → [Tight, structure-based SL.]
 • 🚨 Invalidate if: [Macro, BTC/ETH rejection, funding flip, major volume shift — be precise.]
 
 🔍 Insights:
-• What's driving this move? (ETF, sentiment, on-chain, etc.)
-• Recent chart behavior (pullback, breakout, fakeout?)
-• Supporting or contradicting signals (RSI divergence? funding flips?)
-• Optional wildcard or emotional/meta factor (fear/greed index, CPI fear, etc.)`
+• What's driving this move? → [MANDATORY: Provide specific catalyst or driver]
+• Recent chart behavior → [MANDATORY: Describe recent price action and patterns]
+• Supporting or contradicting signals → [MANDATORY: Technical indicators, volume, sentiment analysis]
+• Wildcard/Meta factor → [MANDATORY: Market psychology, fear/greed, macro context]
+
+IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, actionable information. Do not leave any field empty or with placeholder text.`
             }
           ]
         })
