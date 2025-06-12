@@ -157,35 +157,8 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return sources;
   };
 
-  // Extract sources from markdown links in content
-  const extractSourcesFromContent = (content: string): Array<{name: string, url: string}> => {
-    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    const sources: Array<{name: string, url: string}> = [];
-    let match;
-
-    while ((match = markdownLinkRegex.exec(content)) !== null) {
-      const name = match[1];
-      const url = match[2];
-      
-      // Extract domain name for cleaner display
-      try {
-        const domain = new URL(url).hostname.replace('www.', '');
-        sources.push({ name: domain, url });
-      } catch {
-        sources.push({ name, url });
-      }
-    }
-
-    // Remove duplicates
-    const uniqueSources = sources.filter((source, index, self) => 
-      index === self.findIndex(s => s.url === source.url)
-    );
-
-    return uniqueSources;
-  };
-
-  // Updated API call function with current price requirement
-  const callOpenRouterAPI = async (userQuery: string): Promise<ResponseCard> => {
+  // REI API call function
+  const callREIAPI = async (userQuery: string): Promise<ResponseCard> => {
     try {
       const currentDate = new Date();
       const formattedDate = currentDate.toLocaleDateString('en-US', { 
@@ -195,41 +168,19 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
         day: 'numeric' 
       });
 
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const response = await fetch('https://api.reisearch.box/rei/agents/chat-completion', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer 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`,
+          'Authorization': 'Bearer pk_rei_68435a522450b95277f1cfc9.147a8f17223f17c9a8091722a028177383c0ea4640b5e827e2a073ed7c72194e.1a18eb03f8c1d8849269f08de5b73d41703d714dbc421d3315f4932795636ee0',
           'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'Traxor Intelligence Terminal',
         },
         body: JSON.stringify({
-          model: 'openai/gpt-4.1:online',
-          temperature: 0.7,
-          top_p: 1.0,
-          frequency_penalty: 0,
-          presence_penalty: 0,
-          plugins: [
-            {
-              id: 'web',
-              max_results: 10,
-              search_prompt: `A web search was conducted on ${formattedDate}. Incorporate the following real-time crypto market results into your analysis. IMPORTANT: Prioritize sources such as tronweekly.com, beincrypto.com, coindesk.com, cryptotimes.io, thecoinrepublic.com, fxleaders.com, bitget.com, cryptobriefing.com, cryptopotato.com, cryptoslate.com, and lookonchain.com. Cite each source using markdown with the domain name.`
-            }
-          ],
           messages: [
             {
               role: 'system',
-              content: 'You are a tactical crypto trading strategist with access to live web data. Your job is to generate clear, structured, and actionable trade setups — not summaries or vague outlooks. Every signal must include a specific directional view (bullish, bearish, or neutral) backed by real-time technical analysis (e.g., support/resistance, trendlines, RSI, MACD), on-chain metrics (exchange inflows/outflows'
-            },
-            {
-              role: 'user',
-              content: `Today is ${formattedDate}.
+              content: `You are a tactical crypto trading strategist with access to live web data. Your job is to generate clear, structured, and actionable trade setups — not summaries or vague outlooks. Every signal must include a specific directional view (bullish, bearish, or neutral) backed by real-time technical analysis, on-chain metrics, and market sentiment.
 
-Give me a tactical trading signal for the following query:
-
-"${userQuery}"
-
-Use live web data, recent headlines, exchange flow, sentiment, and chart-based logic.
+Today is ${formattedDate}.
 
 🧠 Output in this exact format:
 
@@ -237,9 +188,9 @@ Use live web data, recent headlines, exchange flow, sentiment, and chart-based l
 
 📈 Asset: [Token or asset being discussed]
 
-💰 Current Price: $[CURRENT LIVE PRICE] → [Include the actual current price from your web search]
+💰 Current Price: $[CURRENT LIVE PRICE] → [Include the actual current price from your analysis]
 
-Important - These 5 points must be filled in with each response. 
+Important - These 5 points must be filled in with each response:
 • 💡 View: Bullish/Bearish/Neutral → [Concise directional bias with technical and sentiment justification. Be specific.]
 • 🎯 Entry Zone: $___ to $___ → [Key support or structure area to enter.]
 • 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE TAKE PROFITS ARE MANDATORY - provide specific price levels]
@@ -252,28 +203,51 @@ Important - These 5 points must be filled in with each response.
 • Supporting or contradicting signals → [MANDATORY: Technical indicators, volume, sentiment analysis]
 • Wildcard/Meta factor → [MANDATORY: Market psychology, fear/greed, macro context]
 
-IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, actionable information. Do not leave any field empty or with placeholder text.`
+IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, actionable information. Do not leave any field empty or with placeholder text.
+
+When citing sources, prioritize: tronweekly.com, cryptotimes.io, thecoinrepublic.com, beincrypto.com, fxleaders.com, bitget.com, coindesk.com, cryptopotato.com, cryptobriefing.com, cryptoslate.com, cointelegraph.com, lookonchain.com`
+            },
+            {
+              role: 'user',
+              content: `Give me a tactical trading signal for: ${userQuery}
+
+Use live web data, recent headlines, exchange flow, sentiment, and chart-based logic to provide a complete trading setup.`
+            }
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current crypto market data, news, and analysis',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: {
+                      type: 'string',
+                      description: 'Search query for crypto market information'
+                    }
+                  },
+                  required: ['query'],
+                  additionalProperties: false
+                },
+                strict: true
+              }
             }
           ]
         })
       });
 
       if (!response.ok) {
-        throw new Error(`API call failed: ${response.status}`);
+        throw new Error(`REI API call failed: ${response.status}`);
       }
 
       const data = await response.json();
       let content = data.choices[0].message.content;
 
-      // Extract sources from markdown links before removing formatting
-      let sourcesWithLinks = extractSourcesFromContent(content);
-      
-      // If no sources found in content, use rotating sources
-      if (sourcesWithLinks.length === 0) {
-        sourcesWithLinks = getRotatingSources(3);
-        // Increment source index for next call
-        setSourceIndex(prev => (prev + 3) % cryptoSources.length);
-      }
+      // Get rotating sources for this response
+      const sourcesWithLinks = getRotatingSources(3);
+      setSourceIndex(prev => (prev + 3) % cryptoSources.length);
 
       // Remove ** formatting from content
       content = content.replace(/\*\*(.*?)\*\*/g, '$1');
@@ -403,7 +377,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
         query: userQuery,
         headline: headline || `Crypto Signal — ${formattedDate}`,
         bullets: allBullets,
-        sentiment: 'Traxor Engine',
+        sentiment: 'REI Agent',
         sources: sourcesWithLinks.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
@@ -420,7 +394,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
       };
 
     } catch (error) {
-      console.error('API call failed:', error);
+      console.error('REI API call failed:', error);
       
       // Fallback to mock response with rotating sources
       const fallbackSources = getRotatingSources(3);
@@ -442,7 +416,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
           'Supporting/Contradicting signals → Options flow showing bullish positioning',
           'Wildcard/Meta → Fear & Greed index showing extreme fear, contrarian signal'
         ],
-        sentiment: 'Traxor Engine',
+        sentiment: 'REI Agent',
         sources: fallbackSources.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
@@ -460,7 +434,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
     setSidebarOpen(false); // Close sidebar on mobile when submitting
     
     try {
-      const newResponse = await callOpenRouterAPI(query);
+      const newResponse = await callREIAPI(query);
       setResponses(prev => [newResponse, ...prev]);
       setQuery('');
       
@@ -515,7 +489,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
               <div className="bg-[#1D1E22]/80 border border-[#FF7744]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-pulse backdrop-blur-md shadow-2xl">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-3 h-3 bg-[#FF7744] rounded-full animate-ping" />
-                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">Traxor Engine processing with live web data...</span>
+                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">REI Agent processing with live web data...</span>
                 </div>
                 <div className="space-y-3">
                   <div className="h-3 sm:h-4 bg-[#2A2B32]/50 rounded w-3/4 animate-pulse" />
@@ -615,7 +589,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                   <Brain className="w-8 sm:w-10 h-8 sm:h-10 text-[#121212]" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-                  Traxor Signal Engine Active
+                  REI Signal Engine Active
                 </h3>
                 <p className="text-gray-400 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base px-4">
                   Ask about any crypto asset for live trading signals with real-time web data synthesis.
@@ -789,7 +763,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">AI Model:</span>
-                    <span className="text-green-400 font-medium text-sm sm:text-base">GPT-4.1 Online</span>
+                    <span className="text-green-400 font-medium text-sm sm:text-base">REI Agent</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">Web Search:</span>
@@ -909,7 +883,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
             </div>
             <div>
               <h1 className="font-bold text-lg sm:text-xl text-white">Traxor Signal Engine</h1>
-              <p className="text-xs text-gray-400">Engine v3.2.1</p>
+              <p className="text-xs text-gray-400">REI Agent v3.2.1</p>
             </div>
           </div>
         </div>
@@ -948,7 +922,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
         <div className="p-3 sm:p-4 border-t border-[#2A2B32]">
           <div className="flex items-center space-x-2 text-xs text-gray-400">
             <div className="w-2 h-2 bg-[#FF7744] rounded-full animate-pulse"></div>
-            <span>Traxor Signal Engine Active</span>
+            <span>REI Signal Engine Active</span>
           </div>
         </div>
       </div>
