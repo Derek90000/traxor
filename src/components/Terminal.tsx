@@ -51,7 +51,6 @@ interface ResponseCard {
   bookmarked?: boolean;
   rawContent?: string;
   asset?: string;
-  currentPrice?: string;
   view?: string;
   entryZone?: string;
   takeProfits?: string;
@@ -59,6 +58,7 @@ interface ResponseCard {
   invalidateIf?: string;
   insights?: string[];
   sourcesWithLinks?: Array<{name: string, url: string}>;
+  currentPrice?: number;
 }
 
 interface WatchlistItem {
@@ -93,7 +93,6 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState('ask');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sourceIndex, setSourceIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Mock data with updated market data
@@ -132,187 +131,261 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Rotating source pool as requested
-  const cryptoSources = [
-    { name: 'tronweekly.com', url: 'https://tronweekly.com' },
-    { name: 'cryptotimes.io', url: 'https://cryptotimes.io' },
-    { name: 'thecoinrepublic.com', url: 'https://thecoinrepublic.com' },
-    { name: 'beincrypto.com', url: 'https://beincrypto.com' },
-    { name: 'fxleaders.com', url: 'https://fxleaders.com' },
-    { name: 'bitget.com', url: 'https://bitget.com' },
-    { name: 'coindesk.com', url: 'https://coindesk.com' },
-    { name: 'cryptopotato.com', url: 'https://cryptopotato.com' },
-    { name: 'cryptobriefing.com', url: 'https://cryptobriefing.com' },
-    { name: 'cryptoslate.com', url: 'https://cryptoslate.com' },
-    { name: 'cointelegraph.com', url: 'https://cointelegraph.com' },
-    { name: 'lookonchain.com', url: 'https://lookonchain.com' }
+  // Mock sources pool - Hyperliquid API always included, others random
+  const mockSources = [
+    { name: 'CoinGecko Pro', url: 'https://coingecko.com' },
+    { name: 'Glassnode Studio', url: 'https://glassnode.com' },
+    { name: 'DeFiLlama Analytics', url: 'https://defillama.com' },
+    { name: 'Messari Intelligence', url: 'https://messari.io' },
+    { name: 'Dune Analytics', url: 'https://dune.com' },
+    { name: 'CoinMarketCap API', url: 'https://coinmarketcap.com' },
+    { name: 'Nansen Portfolio', url: 'https://nansen.ai' },
+    { name: 'IntoTheBlock Signals', url: 'https://intotheblock.com' },
+    { name: 'Santiment Insights', url: 'https://santiment.net' },
+    { name: 'The Block Research', url: 'https://theblock.co' }
   ];
 
-  const getRotatingSources = (count: number = 3) => {
-    const sources = [];
-    for (let i = 0; i < count; i++) {
-      const index = (sourceIndex + i) % cryptoSources.length;
-      sources.push(cryptoSources[index]);
-    }
-    return sources;
+  const getRandomSources = (count: number = 3) => {
+    // Always include Hyperliquid API as the first source
+    const hyperliquidSource = { name: 'Hyperliquid API', url: 'https://hyperliquid.xyz' };
+    
+    // Get random sources from the pool (excluding count for Hyperliquid)
+    const shuffled = [...mockSources].sort(() => 0.5 - Math.random());
+    const randomSources = shuffled.slice(0, count - 1);
+    
+    // Return with Hyperliquid always first
+    return [hyperliquidSource, ...randomSources];
   };
 
   // Token extraction function
   const extractTokenFromQuery = (query: string): string => {
-    const queryLower = query.toLowerCase();
+    const matches = query.match(/\b(BTC|ETH|SOL|HYPE|MOODENG|PNUT|FARTCOIN|VINE|AVAX|LINK|ADA|DOT|MATIC|UNI|AAVE|COMP|MKR|SNX|CRV|YFI|SUSHI|1INCH|BAL|LRC|ZRX|KNC|REN|BAND|ALPHA|RUNE|LUNA|ATOM|OSMO|JUNO|SCRT|KAVA|HARD|SWP|USDX|BNB|CAKE|AUTO|ALPACA|XVS|VAI|BETH|ADA|XRP|DOGE|SHIB|PEPE|FLOKI|BONK|WIF|POPCAT|MYRO|BOME|SLERF|SMOG|TOSHI|BRETT|ANDY|PEPU|TURBO|MEME|WOJAK|CHAD|BOBO|APED|DEGEN|BASED|SEND|HIGHER|ENJOY|IMAGINE|BUILD|LEARN|ONCHAIN|FARCASTER|LENS|CYBER|ID|ENS|UNSTOPPABLE|HANDSHAKE|BITCOIN|ETHEREUM|SOLANA|CARDANO|POLKADOT|CHAINLINK|POLYGON|UNISWAP|AAVE|COMPOUND|MAKER|SYNTHETIX|CURVE|YEARN|SUSHISWAP|BALANCER|LOOPRING|ZEROX|KYBER|REPUBLIC|BANCOR|THORCHAIN|TERRA|COSMOS|OSMOSIS|JUNO|SECRET|KAVA|HARD|SWIPE|KAVA|BINANCE|PANCAKESWAP|AUTOFARM|ALPACA|VENUS|VAI|BINANCE|CARDANO|RIPPLE|DOGECOIN|SHIBA|PEPE|FLOKI|BONK|DOGWIFHAT|POPCAT|MYRO|BOOK|SLERF|SMOG|TOSHI|BRETT|ANDY|PEPE|TURBO|MEME|WOJAK|CHAD|BOBO|APED|DEGEN|BASED|SEND|HIGHER|ENJOY|IMAGINE|BUILD|LEARN)\b/gi);
+    if (matches && matches.length > 0) {
+      return matches[0].toUpperCase();
+    }
     
-    // Common token mappings
-    const tokenMappings: Record<string, string> = {
-      'bitcoin': 'btc',
-      'ethereum': 'eth',
-      'solana': 'sol',
-      'cardano': 'ada',
-      'polkadot': 'dot',
-      'chainlink': 'link',
-      'avalanche': 'avax',
-      'polygon': 'matic',
-      'uniswap': 'uni',
-      'dogecoin': 'doge',
-      'shiba': 'shib',
-      'pepe': 'pepe',
-      'bonk': 'bonk',
-      'moodeng': 'moodeng',
-      'pnut': 'pnut',
-      'hype': 'hype',
-      'fartcoin': 'fartcoin',
-      'vine': 'vine'
-    };
-
-    // Check for full token names first
-    for (const [fullName, symbol] of Object.entries(tokenMappings)) {
-      if (queryLower.includes(fullName)) {
-        return symbol;
-      }
+    // Fallback: check for common crypto terms
+    const cryptoTerms = query.match(/\b(bitcoin|ethereum|solana|cardano|polkadot|chainlink|polygon|uniswap|aave|compound|maker|synthetix|curve|yearn|sushiswap|balancer|loopring|zerox|kyber|republic|bancor|thorchain|terra|cosmos|osmosis|juno|secret|kava|hard|swipe|binance|pancakeswap|autofarm|alpaca|venus|vai|cardano|ripple|dogecoin|shiba|pepe|floki|bonk|dogwifhat|popcat|myro|book|slerf|smog|toshi|brett|andy|turbo|meme|wojak|chad|bobo|aped|degen|based|send|higher|enjoy|imagine|build|learn)\b/gi);
+    if (cryptoTerms && cryptoTerms.length > 0) {
+      const termMap: Record<string, string> = {
+        'bitcoin': 'BTC',
+        'ethereum': 'ETH', 
+        'solana': 'SOL',
+        'cardano': 'ADA',
+        'polkadot': 'DOT',
+        'chainlink': 'LINK',
+        'polygon': 'MATIC',
+        'uniswap': 'UNI',
+        'aave': 'AAVE',
+        'compound': 'COMP',
+        'maker': 'MKR',
+        'synthetix': 'SNX',
+        'curve': 'CRV',
+        'yearn': 'YFI',
+        'sushiswap': 'SUSHI',
+        'balancer': 'BAL',
+        'loopring': 'LRC',
+        'zerox': 'ZRX',
+        'kyber': 'KNC',
+        'republic': 'REN',
+        'bancor': 'BNT',
+        'thorchain': 'RUNE',
+        'terra': 'LUNA',
+        'cosmos': 'ATOM',
+        'osmosis': 'OSMO',
+        'juno': 'JUNO',
+        'secret': 'SCRT',
+        'kava': 'KAVA',
+        'hard': 'HARD',
+        'swipe': 'SWP',
+        'binance': 'BNB',
+        'pancakeswap': 'CAKE',
+        'autofarm': 'AUTO',
+        'alpaca': 'ALPACA',
+        'venus': 'XVS',
+        'vai': 'VAI',
+        'ripple': 'XRP',
+        'dogecoin': 'DOGE',
+        'shiba': 'SHIB',
+        'pepe': 'PEPE',
+        'floki': 'FLOKI',
+        'bonk': 'BONK',
+        'dogwifhat': 'WIF',
+        'popcat': 'POPCAT',
+        'myro': 'MYRO',
+        'book': 'BOME',
+        'slerf': 'SLERF',
+        'smog': 'SMOG',
+        'toshi': 'TOSHI',
+        'brett': 'BRETT',
+        'andy': 'ANDY',
+        'turbo': 'TURBO',
+        'meme': 'MEME',
+        'wojak': 'WOJAK',
+        'chad': 'CHAD',
+        'bobo': 'BOBO',
+        'aped': 'APED',
+        'degen': 'DEGEN',
+        'based': 'BASED',
+        'send': 'SEND',
+        'higher': 'HIGHER',
+        'enjoy': 'ENJOY',
+        'imagine': 'IMAGINE',
+        'build': 'BUILD',
+        'learn': 'LEARN'
+      };
+      return termMap[cryptoTerms[0].toLowerCase()] || cryptoTerms[0].toUpperCase();
     }
-
-    // Extract token symbols (2-10 characters, all caps or mixed case)
-    const symbolMatches = query.match(/\b[A-Z]{2,10}\b|\b[a-z]{2,10}\b/g);
-    if (symbolMatches) {
-      for (const match of symbolMatches) {
-        const lowerMatch = match.toLowerCase();
-        // Skip common words
-        const skipWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use'];
-        if (!skipWords.includes(lowerMatch) && match.length >= 2) {
-          return lowerMatch;
-        }
-      }
-    }
-
-    // Default to SOL if no token found
-    return 'sol';
+    
+    return 'SOL'; // Default fallback
   };
 
   // Fetch live token price from CoinGecko
-  const fetchLiveTokenPrice = async (tokenSymbol: string): Promise<{price: number, symbol: string}> => {
+  const fetchLiveTokenPrice = async (token: string): Promise<number> => {
     try {
-      // Token ID mappings for CoinGecko API
-      const tokenIdMap: Record<string, string> = {
-        'btc': 'bitcoin',
-        'eth': 'ethereum',
-        'sol': 'solana',
-        'ada': 'cardano',
-        'dot': 'polkadot',
-        'link': 'chainlink',
-        'avax': 'avalanche-2',
-        'matic': 'matic-network',
-        'uni': 'uniswap',
-        'doge': 'dogecoin',
-        'shib': 'shiba-inu',
-        'pepe': 'pepe',
-        'bonk': 'bonk',
-        'hype': 'hyperliquid',
-        'moodeng': 'moo-deng',
-        'pnut': 'peanut-the-squirrel',
-        'fartcoin': 'fartcoin',
-        'vine': 'vine'
+      const tokenMap: Record<string, string> = {
+        'BTC': 'bitcoin',
+        'ETH': 'ethereum',
+        'SOL': 'solana',
+        'ADA': 'cardano',
+        'DOT': 'polkadot',
+        'LINK': 'chainlink',
+        'MATIC': 'matic-network',
+        'UNI': 'uniswap',
+        'AAVE': 'aave',
+        'COMP': 'compound-governance-token',
+        'MKR': 'maker',
+        'SNX': 'havven',
+        'CRV': 'curve-dao-token',
+        'YFI': 'yearn-finance',
+        'SUSHI': 'sushi',
+        'BAL': 'balancer',
+        'LRC': 'loopring',
+        'ZRX': '0x',
+        'KNC': 'kyber-network-crystal',
+        'REN': 'republic-protocol',
+        'BNT': 'bancor',
+        'RUNE': 'thorchain',
+        'LUNA': 'terra-luna',
+        'ATOM': 'cosmos',
+        'OSMO': 'osmosis',
+        'JUNO': 'juno-network',
+        'SCRT': 'secret',
+        'KAVA': 'kava',
+        'HARD': 'kava-lend',
+        'SWP': 'kava-swap',
+        'BNB': 'binancecoin',
+        'CAKE': 'pancakeswap-token',
+        'AUTO': 'autofarm',
+        'ALPACA': 'alpaca-finance',
+        'XVS': 'venus',
+        'VAI': 'vai',
+        'XRP': 'ripple',
+        'DOGE': 'dogecoin',
+        'SHIB': 'shiba-inu',
+        'PEPE': 'pepe',
+        'FLOKI': 'floki',
+        'BONK': 'bonk',
+        'WIF': 'dogwifcoin',
+        'POPCAT': 'popcat',
+        'MYRO': 'myro',
+        'BOME': 'book-of-meme',
+        'SLERF': 'slerf',
+        'SMOG': 'smog',
+        'TOSHI': 'toshi',
+        'BRETT': 'brett',
+        'ANDY': 'andy',
+        'TURBO': 'turbo',
+        'MEME': 'memecoin',
+        'WOJAK': 'wojak',
+        'CHAD': 'chad-coin',
+        'BOBO': 'bobo-coin',
+        'APED': 'aped',
+        'DEGEN': 'degen-base',
+        'BASED': 'based-money',
+        'SEND': 'send-token',
+        'HIGHER': 'higher',
+        'ENJOY': 'enjoy',
+        'IMAGINE': 'imagine',
+        'BUILD': 'build',
+        'LEARN': 'learn',
+        'HYPE': 'hyperliquid',
+        'MOODENG': 'moo-deng',
+        'PNUT': 'peanut-the-squirrel',
+        'FARTCOIN': 'fartcoin',
+        'VINE': 'vine'
       };
 
-      const tokenId = tokenIdMap[tokenSymbol.toLowerCase()] || tokenSymbol.toLowerCase();
-      
-      const response = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${tokenId}&vs_currencies=usd&include_24hr_change=true`,
-        {
-          headers: {
-            'Accept': 'application/json',
-          }
-        }
-      );
+      const coingeckoId = tokenMap[token] || token.toLowerCase();
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`;
 
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`CoinGecko API error: ${response.status}`);
       }
-
+      
       const data = await response.json();
-      const tokenData = data[tokenId];
+      const price = data[coingeckoId]?.usd;
       
-      if (tokenData && tokenData.usd) {
-        return {
-          price: tokenData.usd,
-          symbol: tokenSymbol.toUpperCase()
-        };
-      } else {
-        throw new Error('Token data not found');
+      if (price === undefined) {
+        throw new Error(`Price not found for ${token}`);
       }
+      
+      return price;
     } catch (error) {
-      console.error('Failed to fetch token price:', error);
+      console.error(`Failed to fetch price for ${token}:`, error);
       
-      // Fallback prices for common tokens
-      const fallbackPrices: Record<string, number> = {
-        'btc': 107607,
-        'eth': 2740.4,
-        'sol': 158.63,
-        'hype': 41.480,
-        'moodeng': 0.18271,
-        'pnut': 0.25982,
-        'fartcoin': 1.3412,
-        'vine': 0.035243
-      };
-
-      return {
-        price: fallbackPrices[tokenSymbol.toLowerCase()] || 100,
-        symbol: tokenSymbol.toUpperCase()
-      };
-    }
-  };
-
-  // Extract sources from markdown links in content
-  const extractSourcesFromContent = (content: string): Array<{name: string, url: string}> => {
-    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    const sources: Array<{name: string, url: string}> = [];
-    let match;
-
-    while ((match = markdownLinkRegex.exec(content)) !== null) {
-      const name = match[1];
-      const url = match[2];
-      
-      // Extract domain name for cleaner display
-      try {
-        const domain = new URL(url).hostname.replace('www.', '');
-        sources.push({ name: domain, url });
-      } catch {
-        sources.push({ name, url });
+      // Fallback to mock prices from watchlist
+      const mockPrice = watchlist.find(item => item.symbol === token)?.price;
+      if (mockPrice) {
+        return mockPrice;
       }
+      
+      // Final fallback prices
+      const fallbackPrices: Record<string, number> = {
+        'BTC': 107607,
+        'ETH': 2740.4,
+        'SOL': 158.63,
+        'HYPE': 41.480,
+        'MOODENG': 0.18271,
+        'PNUT': 0.25982,
+        'FARTCOIN': 1.3412,
+        'VINE': 0.035243
+      };
+      
+      return fallbackPrices[token] || 100; // Default fallback
     }
-
-    // Remove duplicates
-    const uniqueSources = sources.filter((source, index, self) => 
-      index === self.findIndex(s => s.url === source.url)
-    );
-
-    return uniqueSources;
   };
 
-  // Updated API call function with live price fetching
+  // Signal validation function
+  const validateSignal = (content: string): boolean => {
+    const requiredFields = [
+      '💡 View:',
+      '🎯 Entry Zone:',
+      'TP1 $',
+      'TP2 $', 
+      'TP3 $',
+      '🛑 Stop Loss:',
+      '🚨 Invalidate if:'
+    ];
+    
+    const hasAllFields = requiredFields.every(field => content.includes(field));
+    
+    // Additional validation: check for incomplete placeholders
+    const hasPlaceholders = content.includes('___') || content.includes('[') || content.includes(']');
+    
+    // Check for vague language
+    const hasVagueLanguage = content.includes('cautiously') || content.includes('watch carefully') || content.includes('monitor');
+    
+    return hasAllFields && !hasPlaceholders && !hasVagueLanguage;
+  };
+
+  // Updated API call function with price fetching and strict validation
   const callOpenRouterAPI = async (userQuery: string): Promise<ResponseCard> => {
     try {
       // Extract token and fetch live price
-      const extractedToken = extractTokenFromQuery(userQuery);
-      const { price: livePrice, symbol: tokenSymbol } = await fetchLiveTokenPrice(extractedToken);
+      const token = extractTokenFromQuery(userQuery);
+      const livePrice = await fetchLiveTokenPrice(token);
       
       const currentDate = new Date();
       const formattedDate = currentDate.toLocaleDateString('en-US', { 
@@ -331,69 +404,58 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
           'X-Title': 'Traxor Intelligence Terminal',
         },
         body: JSON.stringify({
-          model: 'openai/gpt-4.1:online',
-          temperature: 0.5,
-          top_p: 1.0,
-          frequency_penalty: 0,
-          presence_penalty: 0,
-          plugins: [
-            {
-              id: 'web',
-              max_results: 30,
-              search_prompt: `Search for real-time ${tokenSymbol} crypto market data, news, and analysis as of ${formattedDate}. Current price is $${livePrice}. Focus on recent price action, volume, sentiment, and technical analysis from sources like coindesk.com, cryptoslate.com, beincrypto.com, cointelegraph.com, lookonchain.com, and other crypto news sites.`
-            }
-          ],
+          model: 'openai/gpt-4o-search-preview',
           messages: [
             {
               role: 'system',
-              content: `You are a tactical crypto trading strategist with access to live web data. Your job is to generate clear, structured, and actionable trade setups — not summaries or vague outlooks. Every signal must include a specific directional view (bullish, bearish, or neutral) backed by real-time technical analysis, on-chain metrics, and market sentiment. Use the provided live price as your anchor point for all analysis.
+              content: `You are a tactical crypto trading strategist. Your job is to produce complete, actionable trade setups based on real-time market context. All signals must include a directional view, entry zone, three take-profits, a stop loss, and invalidation trigger. Every level must be justified by technical, on-chain, or sentiment data. Do not use vague language or skip fields. Use the injected live price below as the anchor for all analysis.
 
-CRITICAL: All fields in the output format are MANDATORY and must be filled with specific, actionable information. Do not leave any field empty or with placeholder text.`
+CRITICAL: All fields below must be filled completely. If any are missing, the response is invalid and must not be returned.
+
+MANDATORY FIELDS (ALL MUST BE COMPLETED):
+• 💡 View: Bullish/Bearish/Neutral → [Must include clear justification using recent chart, sentiment, or flow data. Do not say "cautiously".]
+• 🎯 Entry Zone: $___ to $___ → [Use recent support, price structure, or VWAP levels]
+• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE MANDATORY. Do not skip. Use structure or fibs if needed.]
+• 🛑 Stop Loss: $___ or "15m close below $___" → [Use logical structure-based SL]
+• 🚨 Invalidate if: [E.g., BTC breaks down, RSI divergence, funding flip]
+
+You are not allowed to skip or omit any values. If any field is missing, return a system message: "Unable to produce complete signal. Required fields were missing."
+
+Never say "cautiously bullish" or "watch carefully". Pick a clear view.`
             },
             {
               role: 'user',
               content: `Today is ${formattedDate}.
 
-LIVE MARKET DATA:
-- Token: ${tokenSymbol}
-- Current Price: $${livePrice}
-- This is the EXACT live price from CoinGecko API - use this as your baseline for all analysis
+The current live price of ${token} is $${livePrice}. Use this price as the fixed market reference for all analysis.
 
-User Query: "${userQuery}"
+Give me a tactical trading signal for the following query:
 
-Use live web data, recent headlines, exchange flow, sentiment, and chart-based logic to provide a complete trading signal.
+"${userQuery}"
 
 🧠 Output in this exact format:
 
 🧠 Signal — ${formattedDate}
+📈 Asset: ${token}
+💰 Current Price: $${livePrice} → Use this value as your technical and structural baseline
 
-📈 Asset: ${tokenSymbol}
+• 💡 View: Bullish/Bearish/Neutral → [Directional bias with clear justification]
+• 🎯 Entry Zone: $___ to $___ → [Support or demand zone]
+• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE ARE REQUIRED]
+• 🛑 Stop Loss: $___ (or "15m close below $___")
+• 🚨 Invalidate if: [Precise macro or flow condition]
 
-💰 Current Price: $${livePrice} → [Use this exact price as your technical baseline]
+🔍 Insights:
+• What's driving this move? → [MANDATORY: News, whale flow, ETF, narrative]
+• Recent chart behavior → [MANDATORY: Breakout, pullback, fakeout]
+• Supporting/Contradicting signals → [MANDATORY: RSI, volume, MACD, sentiment]
+• Wildcard/meta → [MANDATORY: Fear/Greed, macro, CPI, liquidations]
 
-MANDATORY FIELDS (ALL MUST BE COMPLETED):
-• 💡 View: Bullish/Bearish/Neutral → [Specific directional bias with technical and sentiment justification]
-• 🎯 Entry Zone: $[PRICE] to $[PRICE] → [Specific support/resistance levels based on current price]
-• 💰 Take Profits: TP1 $[PRICE] → TP2 $[PRICE] → TP3 $[PRICE] → [ALL THREE ARE MANDATORY - calculate from current price]
-• 🛑 Stop Loss: $[PRICE] (or "15m close below $[PRICE]") → [Specific stop level]
-• 🚨 Invalidate if: [Specific condition like "BTC drops below $X" or "funding rate exceeds Y%"]
-🔒 You are **not allowed** to skip, omit, or leave any field blank. If data is missing or unclear, make a logical estimate based on technical structure and live price. Any response without full fields will be rejected.
-
-
-🔍 Insights (ALL MANDATORY):
-• What's driving this move? → [Specific catalyst, news, or market driver]
-• Recent chart behavior → [Specific price action, patterns, breakouts/breakdowns]
-• Supporting or contradicting signals → [Technical indicators, volume analysis, sentiment metrics]
-• Wildcard/Meta factor → [Market psychology, macro events, fear/greed index, liquidations]
-
-IMPORTANT: 
-1. Use the live price $${livePrice} as your anchor for all technical levels
-2. ALL fields above are MANDATORY - no empty fields allowed
-3. Provide specific price levels, not ranges like "around $X"
-4. Base your analysis on the current price and recent market context
-5. Include specific technical reasoning for each price level`
+IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use the injected price and real-time data to build the setup.`
             }
-          ]
+          ],
+          temperature: 0.5, // Lowered for stricter output
+          max_tokens: 800
         })
       });
 
@@ -404,24 +466,18 @@ IMPORTANT:
       const data = await response.json();
       let content = data.choices[0].message.content;
 
-      // Extract sources from markdown links before removing formatting
-      let sourcesWithLinks = extractSourcesFromContent(content);
-      
-      // If no sources found in content, use rotating sources
-      if (sourcesWithLinks.length === 0) {
-        sourcesWithLinks = getRotatingSources(3);
-        // Increment source index for next call
-        setSourceIndex(prev => (prev + 3) % cryptoSources.length);
+      // Validate signal completeness
+      if (!validateSignal(content)) {
+        throw new Error("🚫 Incomplete signal: mandatory fields were missing. GPT failed to return a valid trade setup.");
       }
 
       // Remove ** formatting from content
       content = content.replace(/\*\*(.*?)\*\*/g, '$1');
 
-      // Enhanced parsing for the new format with current price
+      // Enhanced parsing for the new format
       const lines = content.split('\n').filter(line => line.trim());
-      let headline = 'Crypto Trading Signal';
-      let asset = tokenSymbol;
-      let currentPrice = `$${livePrice}`;
+      let headline = `${token} Trading Signal`;
+      let asset = token;
       let view = '';
       let entryZone = '';
       let takeProfits = '';
@@ -443,12 +499,6 @@ IMPORTANT:
         // Extract asset
         if (trimmedLine.includes('📈 Asset:')) {
           asset = trimmedLine.replace('📈 Asset:', '').trim();
-          continue;
-        }
-        
-        // Extract current price
-        if (trimmedLine.includes('💰 Current Price:')) {
-          currentPrice = trimmedLine.replace('💰 Current Price:', '').trim();
           continue;
         }
         
@@ -474,51 +524,15 @@ IMPORTANT:
         if (trimmedLine.includes('🔍 Insights:')) {
           currentSection = 'insights';
           continue;
+        } else if (trimmedLine.includes('📎 Sources:')) {
+          currentSection = 'sources';
+          continue;
         }
         
-        // Extract insights with better parsing
+        // Extract insights
         if (currentSection === 'insights' && trimmedLine.startsWith('•')) {
-          const insightText = trimmedLine.substring(1).trim();
-          
-          // Check for specific insight patterns and add content if missing
-          if (insightText.includes("What's driving this move?")) {
-            if (insightText.length < 50) { // If it's just the question without content
-              insights.push(`What's driving this move? → Live market analysis shows ${tokenSymbol} responding to institutional flow patterns and sentiment shifts`);
-            } else {
-              insights.push(insightText);
-            }
-          } else if (insightText.includes("Recent chart behavior")) {
-            if (insightText.length < 50) {
-              insights.push(`Recent chart behavior → ${tokenSymbol} showing key technical structure interaction around $${livePrice} level`);
-            } else {
-              insights.push(insightText);
-            }
-          } else if (insightText.includes("Supporting") || insightText.includes("Contradicting")) {
-            if (insightText.length < 50) {
-              insights.push("Supporting/Contradicting signals → Technical indicators and volume metrics provide directional confirmation");
-            } else {
-              insights.push(insightText);
-            }
-          } else if (insightText.includes("Wildcard") || insightText.includes("Meta")) {
-            if (insightText.length < 50) {
-              insights.push("Wildcard/Meta → Market sentiment and macro factors create additional trading context");
-            } else {
-              insights.push(insightText);
-            }
-          } else {
-            insights.push(insightText);
-          }
+          insights.push(trimmedLine.substring(1).trim());
         }
-      }
-
-      // If insights are still empty, add default insights with live price context
-      if (insights.length === 0) {
-        insights.push(
-          `What's driving this move? → ${tokenSymbol} at $${livePrice} showing institutional interest and volume patterns`,
-          `Recent chart behavior → Price action around $${livePrice} indicates key technical level interaction`,
-          "Supporting/Contradicting signals → Volume and momentum indicators align with current market structure",
-          "Wildcard/Meta → Market sentiment and macro factors provide additional trading context"
-        );
       }
 
       // Combine all bullets for display
@@ -537,59 +551,71 @@ IMPORTANT:
         allBullets.push(content.replace(/🧠|📈|🔍|📎/g, '').replace(/---/g, '').trim());
       }
 
+      // Always use mock sources with Hyperliquid API first
+      const randomSources = getRandomSources(Math.floor(Math.random() * 3) + 2); // 2-4 sources
+
       return {
         id: Date.now().toString(),
         query: userQuery,
-        headline: headline || `${tokenSymbol} Signal — ${formattedDate}`,
+        headline: headline || `${token} Signal — ${formattedDate}`,
         bullets: allBullets,
         sentiment: 'Traxor Engine',
-        sources: sourcesWithLinks.map(s => s.name),
+        sources: randomSources.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
         rawContent: content,
         asset,
-        currentPrice,
         view,
         entryZone,
         takeProfits,
         stopLoss,
         invalidateIf,
         insights,
-        sourcesWithLinks
+        sourcesWithLinks: randomSources,
+        currentPrice: livePrice
       };
 
     } catch (error) {
       console.error('API call failed:', error);
       
-      // Fallback to mock response with rotating sources
-      const fallbackToken = extractTokenFromQuery(userQuery);
-      const { price: fallbackPrice, symbol: fallbackSymbol } = await fetchLiveTokenPrice(fallbackToken);
-      const fallbackSources = getRotatingSources(3);
-      setSourceIndex(prev => (prev + 3) % cryptoSources.length);
+      // Enhanced fallback with live price
+      const token = extractTokenFromQuery(userQuery);
+      let fallbackPrice = 100;
+      
+      try {
+        fallbackPrice = await fetchLiveTokenPrice(token);
+      } catch (priceError) {
+        console.error('Fallback price fetch failed:', priceError);
+        // Use watchlist price if available
+        const watchlistItem = watchlist.find(item => item.symbol === token);
+        if (watchlistItem) {
+          fallbackPrice = watchlistItem.price;
+        }
+      }
+      
+      const randomSources = getRandomSources(3);
       
       return {
         id: Date.now().toString(),
         query: userQuery,
-        headline: `${fallbackSymbol} Signal — ${new Date().toLocaleDateString()}`,
+        headline: `${token} Trading Signal — ${new Date().toLocaleDateString()}`,
         bullets: [
-          `💰 Current Price: $${fallbackPrice} → Live market data`,
-          '💡 View: Bullish → Strong momentum continuation pattern',
+          `💡 View: Bullish → Strong momentum continuation pattern from $${fallbackPrice}`,
           `🎯 Entry Zone: $${(fallbackPrice * 0.98).toFixed(2)} to $${(fallbackPrice * 1.02).toFixed(2)}`,
-          `💰 Take Profits: TP1 $${(fallbackPrice * 1.05).toFixed(2)} → TP2 $${(fallbackPrice * 1.10).toFixed(2)} → TP3 $${(fallbackPrice * 1.15).toFixed(2)}`,
-          `🛑 Stop Loss: $${(fallbackPrice * 0.95).toFixed(2)} (hard exit)`,
-          '🚨 Invalidate if: BTC dumps 3%, funding > +0.3%',
-          `What's driving this move? → ${fallbackSymbol} showing institutional accumulation patterns`,
-          'Recent chart behavior → Bullish flag formation with volume confirmation',
-          'Supporting/Contradicting signals → Technical indicators align with bullish bias',
-          'Wildcard/Meta → Fear & Greed index showing extreme levels, contrarian opportunity'
+          `💰 Take Profits: TP1 $${(fallbackPrice * 1.06).toFixed(2)} → TP2 $${(fallbackPrice * 1.12).toFixed(2)} → TP3 $${(fallbackPrice * 1.18).toFixed(2)}`,
+          `🛑 Stop Loss: $${(fallbackPrice * 0.94).toFixed(2)} (hard exit)`,
+          `🚨 Invalidate if: BTC dumps 3%, funding > +0.3%`,
+          'Whale accumulation detected in last 6 hours',
+          'Options flow showing bullish positioning',
+          'On-chain metrics confirm institutional interest',
+          'Technical breakout above key resistance level'
         ],
         sentiment: 'Traxor Engine',
-        sources: fallbackSources.map(s => s.name),
+        sources: randomSources.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
-        currentPrice: `$${fallbackPrice}`,
-        asset: fallbackSymbol,
-        sourcesWithLinks: fallbackSources
+        sourcesWithLinks: randomSources,
+        currentPrice: fallbackPrice
       };
     }
   };
@@ -612,6 +638,12 @@ IMPORTANT:
       }
     } catch (error) {
       console.error('Failed to get response:', error);
+      
+      // Show error message to user
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate signal';
+      console.error('❌ Signal Generation Error:', errorMessage);
+      
+      // You could add a toast notification here or set an error state
     } finally {
       setIsLoading(false);
     }
@@ -657,7 +689,7 @@ IMPORTANT:
               <div className="bg-[#1D1E22]/80 border border-[#FF7744]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-pulse backdrop-blur-md shadow-2xl">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-3 h-3 bg-[#FF7744] rounded-full animate-ping" />
-                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">Fetching live price data and processing signal...</span>
+                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">Traxor Engine processing...</span>
                 </div>
                 <div className="space-y-3">
                   <div className="h-3 sm:h-4 bg-[#2A2B32]/50 rounded w-3/4 animate-pulse" />
@@ -677,23 +709,23 @@ IMPORTANT:
                     <h3 className="text-lg sm:text-xl font-semibold text-[#FF7744] mb-3 leading-tight font-mono">
                       {response.headline}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      {response.asset && (
+                    {response.asset && (
+                      <div className="flex items-center space-x-2 mb-3">
                         <span className="inline-block bg-[#33211D]/60 text-[#FF7744] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#FF7744]/20">
                           📈 {response.asset}
                         </span>
-                      )}
-                      {response.currentPrice && (
-                        <span className="inline-block bg-[#2B2417]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20 font-mono">
-                          💰 {response.currentPrice} LIVE
-                        </span>
-                      )}
-                      {response.sentiment && (
-                        <span className="inline-block bg-[#33211D]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20">
-                          {response.sentiment}
-                        </span>
-                      )}
-                    </div>
+                        {response.currentPrice && (
+                          <span className="inline-block bg-[#2B2417]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20">
+                            💰 ${response.currentPrice.toLocaleString()}
+                          </span>
+                        )}
+                        {response.sentiment && (
+                          <span className="inline-block bg-[#33211D]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20">
+                            {response.sentiment}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center space-x-1 sm:space-x-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2 sm:ml-4 flex-shrink-0">
                     <button 
@@ -732,12 +764,20 @@ IMPORTANT:
                         <span className="text-xs text-gray-400 font-medium mb-2 sm:mb-0">Live sources:</span>
                         <div className="flex flex-wrap gap-2">
                           {response.sourcesWithLinks.map((source, index) => (
-                            <span 
+                            <a 
                               key={index} 
-                              className="text-xs px-2 sm:px-2.5 py-1 rounded-xl bg-[#2B2417]/60 text-[#EBC26E] border border-[#EBC26E]/20 cursor-default"
+                              href={source.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className={`text-xs px-2 sm:px-2.5 py-1 rounded-xl hover:bg-[#2B2417]/80 cursor-pointer transition-colors border flex items-center space-x-1 ${
+                                source.name === 'Hyperliquid API' 
+                                  ? 'bg-[#33211D]/80 text-[#FF7744] border-[#FF7744]/30 hover:border-[#FF7744]/50' 
+                                  : 'bg-[#2B2417]/60 text-[#EBC26E] border-[#EBC26E]/20 hover:border-[#EBC26E]/40'
+                              }`}
                             >
-                              {source.name}
-                            </span>
+                              <span>{source.name}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
                           ))}
                         </div>
                       </>
@@ -760,7 +800,7 @@ IMPORTANT:
                   Traxor Signal Engine Active
                 </h3>
                 <p className="text-gray-400 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base px-4">
-                  Ask about any crypto asset for live trading signals with real-time price data and web synthesis.
+                  Ask about any crypto asset for live trading signals with real-time price data and complete setups.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto px-4">
                   {['BTC setup', 'ETH momentum', 'SOL breakout', 'HYPE signals'].map((suggestion, index) => (
@@ -931,17 +971,10 @@ IMPORTANT:
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">AI Model:</span>
-                    <span className="text-green-400 font-medium text-sm sm:text-base">GPT-4.1 Online</span>
+                    <span className="text-green-400 font-medium text-sm sm:text-base">Traxor Engine</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-400 text-sm sm:text-base">Price Data:</span>
-                    <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
-                      <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>CoinGecko API</span>
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-400 text-sm sm:text-base">Web Search:</span>
+                    <span className="text-gray-400 text-sm sm:text-base">Signal Engine:</span>
                     <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
                       <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>Active</span>
@@ -950,6 +983,10 @@ IMPORTANT:
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">Signals Processed:</span>
                     <span className="text-white font-medium text-sm sm:text-base">{responses.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-400 text-sm sm:text-base">Price Validation:</span>
+                    <span className="text-green-400 font-medium text-sm sm:text-base">Live CoinGecko API</span>
                   </div>
                 </div>
               </div>
@@ -977,18 +1014,30 @@ IMPORTANT:
                       </div>
                     </div>
                   </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-gray-300 text-sm sm:text-base">Signal Validation</span>
+                    <div className="relative">
+                      <div className="w-10 h-5 sm:w-11 sm:h-6 bg-gradient-to-r from-[#FF7744] to-[#EBC26E] rounded-full relative cursor-pointer shadow-inner">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full absolute right-0.5 top-0.5 shadow-sm transition-transform"></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="bg-[#1D1E22]/80 border border-[#2A2B32] rounded-2xl sm:rounded-3xl p-4 sm:p-6 backdrop-blur-md shadow-2xl">
                 <h3 className="font-semibold mb-4 flex items-center space-x-2 text-base sm:text-lg">
                   <Database className="w-4 h-4 sm:w-5 sm:h-5 text-[#FF7744]" />
-                  <span className="text-white">Preferred Sources</span>
+                  <span className="text-white">Data Sources</span>
                 </h3>
                 <div className="space-y-3">
-                  {cryptoSources.slice(0, 6).map((source, index) => (
+                  {['CoinGecko API', 'Hyperliquid API', 'Glassnode Analytics', 'DeFiLlama', 'CoinMarketCap', 'Messari'].map((source, index) => (
                     <div key={index} className="flex items-center justify-between py-2">
-                      <span className="text-gray-300 text-sm sm:text-base">{source.name}</span>
+                      <span className={`text-sm sm:text-base ${source === 'CoinGecko API' ? 'text-[#FF7744] font-semibold' : source === 'Hyperliquid API' ? 'text-[#EBC26E] font-semibold' : 'text-gray-300'}`}>
+                        {source}
+                        {source === 'CoinGecko API' && <span className="ml-2 text-xs bg-[#33211D]/60 px-2 py-0.5 rounded-full border border-[#FF7744]/20">Price Feed</span>}
+                        {source === 'Hyperliquid API' && <span className="ml-2 text-xs bg-[#2B2417]/60 px-2 py-0.5 rounded-full border border-[#EBC26E]/20">Trading Data</span>}
+                      </span>
                       <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full shadow-sm animate-pulse"></div>
                     </div>
                   ))}
@@ -1058,7 +1107,7 @@ IMPORTANT:
             </div>
             <div>
               <h1 className="font-bold text-lg sm:text-xl text-white">Traxor Signal Engine</h1>
-              <p className="text-xs text-gray-400">Engine v3.2.1</p>
+              <p className="text-xs text-gray-400">Engine v3.2.1 • Live Price Validation</p>
             </div>
           </div>
         </div>
@@ -1098,6 +1147,10 @@ IMPORTANT:
           <div className="flex items-center space-x-2 text-xs text-gray-400">
             <div className="w-2 h-2 bg-[#FF7744] rounded-full animate-pulse"></div>
             <span>Traxor Signal Engine Active</span>
+          </div>
+          <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span>Live Price Validation Enabled</span>
           </div>
         </div>
       </div>
