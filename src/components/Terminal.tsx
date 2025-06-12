@@ -239,6 +239,7 @@ Use live web data, recent headlines, exchange flow, sentiment, and chart-based l
 
 💰 Current Price: $[CURRENT LIVE PRICE] → [Include the actual current price from your web search]
 
+Important - These 5 points must be filled in with each response. 
 • 💡 View: Bullish/Bearish/Neutral → [Concise directional bias with technical and sentiment justification. Be specific.]
 • 🎯 Entry Zone: $___ to $___ → [Key support or structure area to enter.]
 • 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE TAKE PROFITS ARE MANDATORY - provide specific price levels]
