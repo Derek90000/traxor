@@ -377,6 +377,8 @@ MANDATORY FIELDS (ALL MUST BE COMPLETED):
 • 💰 Take Profits: TP1 $[PRICE] → TP2 $[PRICE] → TP3 $[PRICE] → [ALL THREE ARE MANDATORY - calculate from current price]
 • 🛑 Stop Loss: $[PRICE] (or "15m close below $[PRICE]") → [Specific stop level]
 • 🚨 Invalidate if: [Specific condition like "BTC drops below $X" or "funding rate exceeds Y%"]
+🔒 You are **not allowed** to skip, omit, or leave any field blank. If data is missing or unclear, make a logical estimate based on technical structure and live price. Any response without full fields will be rejected.
+
 
 🔍 Insights (ALL MANDATORY):
 • What's driving this move? → [Specific catalyst, news, or market driver]
