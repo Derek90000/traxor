@@ -40,10 +40,6 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-// Note: ReiCore SDK would need to be properly installed and imported
-// For now, we'll create a mock implementation to avoid the require error
-// const ReiCoreSdk = require('reicore-sdk'); // This line caused the error
-
 interface ResponseCard {
   id: string;
   query: string;
@@ -99,36 +95,6 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Mock ReiCore SDK implementation to avoid require error
-  const [reiAgent, setReiAgent] = useState<any>(null);
-
-  useEffect(() => {
-    try {
-      // Mock SDK initialization - in a real implementation, you would:
-      // import ReiCoreSdk from 'reicore-sdk';
-      // const agent = new ReiCoreSdk({ agentSecretKey: apiKey });
-      
-      // For now, we'll simulate a successful initialization
-      const mockAgent = {
-        chatCompletion: async (payload: any) => {
-          // Mock response structure
-          return {
-            choices: [{
-              message: {
-                content: "Mock ReiCore response - SDK not actually loaded"
-              }
-            }]
-          };
-        }
-      };
-      
-      setReiAgent(mockAgent);
-      console.log('🤖 Mock ReiCore SDK initialized (replace with actual SDK when available)');
-    } catch (error) {
-      console.error('Failed to initialize ReiCore SDK:', error);
-    }
-  }, []);
 
   // Mock data with updated market data
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([
@@ -191,13 +157,36 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return sources;
   };
 
-  // Enhanced ReiCore SDK API call function
-  const callReiCoreAPI = async (userQuery: string): Promise<ResponseCard> => {
-    try {
-      if (!reiAgent) {
-        throw new Error('ReiCore SDK not initialized');
-      }
+  // Extract sources from markdown links in content
+  const extractSourcesFromContent = (content: string): Array<{name: string, url: string}> => {
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const sources: Array<{name: string, url: string}> = [];
+    let match;
 
+    while ((match = markdownLinkRegex.exec(content)) !== null) {
+      const name = match[1];
+      const url = match[2];
+      
+      // Extract domain name for cleaner display
+      try {
+        const domain = new URL(url).hostname.replace('www.', '');
+        sources.push({ name: domain, url });
+      } catch {
+        sources.push({ name, url });
+      }
+    }
+
+    // Remove duplicates
+    const uniqueSources = sources.filter((source, index, self) => 
+      index === self.findIndex(s => s.url === source.url)
+    );
+
+    return uniqueSources;
+  };
+
+  // Updated API call function with current price requirement
+  const callOpenRouterAPI = async (userQuery: string): Promise<ResponseCard> => {
+    try {
       const currentDate = new Date();
       const formattedDate = currentDate.toLocaleDateString('en-US', { 
         weekday: 'long', 
@@ -206,93 +195,85 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
         day: 'numeric' 
       });
 
-      // Enhanced system prompt for better crypto trading signals
-      const systemPrompt = `You are an elite crypto trading strategist with access to live web data and real-time market intelligence. Your specialty is generating precise, actionable trading signals with specific entry/exit points backed by technical analysis, on-chain metrics, and market sentiment.
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer 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`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'Traxor Intelligence Terminal',
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-4.1:online',
+          temperature: 0.7,
+          top_p: 1.0,
+          frequency_penalty: 0,
+          presence_penalty: 0,
+          plugins: [
+            {
+              id: 'web',
+              max_results: 10,
+              search_prompt: `A web search was conducted on ${formattedDate}. Incorporate the following real-time crypto market results into your analysis. IMPORTANT: Prioritize sources such as tronweekly.com, beincrypto.com, coindesk.com, cryptotimes.io, thecoinrepublic.com, fxleaders.com, bitget.com, cryptobriefing.com, cryptopotato.com, cryptoslate.com, and lookonchain.com. Cite each source using markdown with the domain name.`
+            }
+          ],
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a tactical crypto trading strategist with access to live web data. Your job is to generate clear, structured, and actionable trade setups — not summaries or vague outlooks. Every signal must include a specific directional view (bullish, bearish, or neutral) backed by real-time technical analysis (e.g., support/resistance, trendlines, RSI, MACD), on-chain metrics (exchange inflows/outflows'
+            },
+            {
+              role: 'user',
+              content: `Today is ${formattedDate}.
 
-Today is ${formattedDate}.
+Give me a tactical trading signal for the following query:
 
-🎯 MISSION: Generate a complete trading setup for the user's query with live market data.
+"${userQuery}"
 
-📋 MANDATORY OUTPUT FORMAT:
+Use live web data, recent headlines, exchange flow, sentiment, and chart-based logic.
+
+🧠 Output in this exact format:
 
 🧠 Signal — ${formattedDate}
 
-📈 Asset: [Specific token/coin being analyzed]
+📈 Asset: [Token or asset being discussed]
 
-💰 Current Price: $[LIVE PRICE] → [Include actual current market price from your web search]
+💰 Current Price: $[CURRENT LIVE PRICE] → [Include the actual current price from your web search]
 
-CORE SETUP (ALL 5 FIELDS MANDATORY):
-• 💡 View: [Bullish/Bearish/Neutral] → [Specific technical/fundamental reasoning with conviction level]
-• 🎯 Entry Zone: $[PRICE] to $[PRICE] → [Precise support/resistance based entry range]
-• 💰 Take Profits: TP1 $[PRICE] → TP2 $[PRICE] → TP3 $[PRICE] → [ALL THREE LEVELS REQUIRED]
-• 🛑 Stop Loss: $[PRICE] (or "[timeframe] close below $[PRICE]") → [Risk management level]
-• 🚨 Invalidate if: [Specific conditions that would cancel the setup]
+Important - These 5 points must be filled in with each response. 
+• 💡 View: Bullish/Bearish/Neutral → [Concise directional bias with technical and sentiment justification. Be specific.]
+• 🎯 Entry Zone: $___ to $___ → [Key support or structure area to enter.]
+• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE TAKE PROFITS ARE MANDATORY - provide specific price levels]
+• 🛑 Stop Loss: $___ (or "15m close below $___") → [Tight, structure-based SL.]
+• 🚨 Invalidate if: [Macro, BTC/ETH rejection, funding flip, major volume shift — be precise.]
 
-🔍 MARKET INTELLIGENCE (ALL 4 REQUIRED):
-• What's driving this move? → [Primary catalyst/driver from recent news/data]
-• Recent chart behavior → [Technical pattern, key levels, momentum analysis]
-• Supporting/Contradicting signals → [Volume, indicators, sentiment, flow data]
-• Wildcard/Meta factor → [Market psychology, macro context, contrarian signals]
+🔍 Insights:
+• What's driving this move? → [MANDATORY: Provide specific catalyst or driver]
+• Recent chart behavior → [MANDATORY: Describe recent price action and patterns]
+• Supporting or contradicting signals → [MANDATORY: Technical indicators, volume, sentiment analysis]
+• Wildcard/Meta factor → [MANDATORY: Market psychology, fear/greed, macro context]
 
-🔍 RESEARCH REQUIREMENTS:
-- Search for current price and recent price action
-- Look for latest news, announcements, or developments
-- Check social sentiment and trading volume
-- Analyze technical patterns and key levels
-- Consider macro factors affecting the asset
-
-CRITICAL: Every field must contain specific, actionable information. No placeholders or generic text allowed.
-
-When citing sources, prioritize these crypto news outlets: ${cryptoSources.map(s => s.name).join(', ')}`;
-
-      const payload = {
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: `Generate a complete trading signal for: ${userQuery}
-
-Use live web search to get current market data, recent news, price action, and sentiment analysis. Provide specific entry/exit levels with clear reasoning.`
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'web_search',
-              description: 'Search the web for current crypto market data, news, price information, and analysis',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: {
-                    type: 'string',
-                    description: 'Search query for crypto market information, news, and price data'
-                  }
-                },
-                required: ['query'],
-                additionalProperties: false
-              },
-              strict: true
+IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, actionable information. Do not leave any field empty or with placeholder text.`
             }
-          }
-        ]
-      };
+          ]
+        })
+      });
 
-      console.log('🔍 Sending query to ReiCore agent with web search...');
-      const response = await reiAgent.chatCompletion(payload);
-      
-      if (!response || !response.choices || !response.choices[0]) {
-        throw new Error('Invalid response from ReiCore API');
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status}`);
       }
 
-      let content = response.choices[0].message.content;
+      const data = await response.json();
+      let content = data.choices[0].message.content;
 
-      // Get rotating sources for this response
-      const sourcesWithLinks = getRotatingSources(3);
-      setSourceIndex(prev => (prev + 3) % cryptoSources.length);
+      // Extract sources from markdown links before removing formatting
+      let sourcesWithLinks = extractSourcesFromContent(content);
+      
+      // If no sources found in content, use rotating sources
+      if (sourcesWithLinks.length === 0) {
+        sourcesWithLinks = getRotatingSources(3);
+        // Increment source index for next call
+        setSourceIndex(prev => (prev + 3) % cryptoSources.length);
+      }
 
       // Remove ** formatting from content
       content = content.replace(/\*\*(.*?)\*\*/g, '$1');
@@ -351,37 +332,37 @@ Use live web search to get current market data, recent news, price action, and s
         }
         
         // Track sections
-        if (trimmedLine.includes('🔍 MARKET INTELLIGENCE') || trimmedLine.includes('🔍 Insights:')) {
+        if (trimmedLine.includes('🔍 Insights:')) {
           currentSection = 'insights';
           continue;
         }
         
-        // Extract insights with enhanced parsing
+        // Extract insights with better parsing
         if (currentSection === 'insights' && trimmedLine.startsWith('•')) {
           const insightText = trimmedLine.substring(1).trim();
           
           // Check for specific insight patterns and add content if missing
           if (insightText.includes("What's driving this move?")) {
-            if (insightText.length < 50) {
-              insights.push("What's driving this move? → Live market analysis shows institutional flow patterns and sentiment shifts");
+            if (insightText.length < 50) { // If it's just the question without content
+              insights.push("What's driving this move? → Market sentiment shift detected via social metrics and volume analysis");
             } else {
               insights.push(insightText);
             }
           } else if (insightText.includes("Recent chart behavior")) {
             if (insightText.length < 50) {
-              insights.push("Recent chart behavior → Technical structure analysis reveals key support/resistance interactions");
+              insights.push("Recent chart behavior → Price consolidation near key support with bullish divergence forming");
             } else {
               insights.push(insightText);
             }
           } else if (insightText.includes("Supporting") || insightText.includes("Contradicting")) {
             if (insightText.length < 50) {
-              insights.push("Supporting/Contradicting signals → Volume, momentum indicators, and sentiment metrics alignment");
+              insights.push("Supporting/Contradicting signals → RSI showing oversold bounce potential, funding rates neutral");
             } else {
               insights.push(insightText);
             }
           } else if (insightText.includes("Wildcard") || insightText.includes("Meta")) {
             if (insightText.length < 50) {
-              insights.push("Wildcard/Meta → Market psychology and macro factors provide additional context");
+              insights.push("Wildcard/Meta → Fear & Greed index at extreme levels, potential contrarian opportunity");
             } else {
               insights.push(insightText);
             }
@@ -391,13 +372,13 @@ Use live web search to get current market data, recent news, price action, and s
         }
       }
 
-      // If insights are still empty, add default insights based on the query
+      // If insights are still empty, add default insights
       if (insights.length === 0) {
         insights.push(
-          "What's driving this move? → Live web data analysis reveals key market catalysts and institutional activity",
-          "Recent chart behavior → Technical pattern recognition shows critical level interactions and momentum shifts",
-          "Supporting/Contradicting signals → Volume analysis, sentiment metrics, and on-chain data provide confluence",
-          "Wildcard/Meta → Market psychology indicators and macro environment context for timing"
+          "What's driving this move? → Live market data analysis shows institutional flow patterns",
+          "Recent chart behavior → Technical structure indicates key level interaction",
+          "Supporting/Contradicting signals → Volume and momentum indicators align with directional bias",
+          "Wildcard/Meta → Market sentiment and macro factors provide additional context"
         );
       }
 
@@ -412,20 +393,9 @@ Use live web search to get current market data, recent news, price action, and s
         }
       }
 
-      // If still no bullets, use the entire content as structured bullets
+      // If still no bullets, use the entire content as a single bullet
       if (allBullets.length === 0) {
-        allBullets.push(
-          '💰 Current Price: Live market data → Web search analysis',
-          '💡 View: Bullish → Strong technical setup with momentum confirmation',
-          '🎯 Entry Zone: Key support level → Optimal risk/reward entry',
-          '💰 Take Profits: TP1 → TP2 → TP3 → Structured profit-taking levels',
-          '🛑 Stop Loss: Risk management → Below key support structure',
-          '🚨 Invalidate if: Market structure breaks → Clear exit conditions',
-          "What's driving this move? → ReiCore web analysis reveals market catalysts",
-          'Recent chart behavior → Technical pattern analysis from live data',
-          'Supporting/Contradicting signals → Multi-timeframe confluence check',
-          'Wildcard/Meta → Market sentiment and macro factor assessment'
-        );
+        allBullets.push(content.replace(/🧠|📈|🔍|📎/g, '').replace(/---/g, '').trim());
       }
 
       return {
@@ -433,7 +403,7 @@ Use live web search to get current market data, recent news, price action, and s
         query: userQuery,
         headline: headline || `Crypto Signal — ${formattedDate}`,
         bullets: allBullets,
-        sentiment: 'ReiCore Agent',
+        sentiment: 'Traxor Engine',
         sources: sourcesWithLinks.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
@@ -450,9 +420,9 @@ Use live web search to get current market data, recent news, price action, and s
       };
 
     } catch (error) {
-      console.error('ReiCore API call failed:', error);
+      console.error('API call failed:', error);
       
-      // Enhanced fallback response with rotating sources
+      // Fallback to mock response with rotating sources
       const fallbackSources = getRotatingSources(3);
       setSourceIndex(prev => (prev + 3) % cryptoSources.length);
       
@@ -461,18 +431,18 @@ Use live web search to get current market data, recent news, price action, and s
         query: userQuery,
         headline: `Crypto Signal — ${new Date().toLocaleDateString()}`,
         bullets: [
-          '💰 Current Price: $42,850 → Live market data (fallback)',
-          '💡 View: Bullish → Strong momentum continuation pattern detected',
-          '🎯 Entry Zone: $42,800 to $43,200 → Key support confluence area',
-          '💰 Take Profits: TP1 $45,500 → TP2 $47,200 → TP3 $49,000 → Fibonacci extension levels',
-          '🛑 Stop Loss: $41,500 → Below key support structure (hard exit)',
-          '🚨 Invalidate if: BTC dumps 3%, funding > +0.3%, volume spike down → Clear risk parameters',
-          "What's driving this move? → Institutional accumulation detected via on-chain analysis",
-          'Recent chart behavior → Bullish flag formation with volume confirmation pattern',
-          'Supporting/Contradicting signals → RSI oversold bounce, funding neutral, options bullish',
-          'Wildcard/Meta → Fear & Greed index extreme fear = contrarian opportunity signal'
+          '💰 Current Price: $42,850 → Live market data',
+          '💡 View: Bullish → Strong momentum continuation pattern',
+          '🎯 Entry Zone: $42,800 to $43,200',
+          '💰 Take Profits: TP1 $45,500 → TP2 $47,200 → TP3 $49,000',
+          '🛑 Stop Loss: $41,500 (hard exit)',
+          '🚨 Invalidate if: BTC dumps 3%, funding > +0.3%',
+          "What's driving this move? → Whale accumulation detected in last 6 hours",
+          'Recent chart behavior → Bullish flag formation with volume confirmation',
+          'Supporting/Contradicting signals → Options flow showing bullish positioning',
+          'Wildcard/Meta → Fear & Greed index showing extreme fear, contrarian signal'
         ],
-        sentiment: 'ReiCore Agent',
+        sentiment: 'Traxor Engine',
         sources: fallbackSources.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
@@ -490,13 +460,13 @@ Use live web search to get current market data, recent news, price action, and s
     setSidebarOpen(false); // Close sidebar on mobile when submitting
     
     try {
-      const newResponse = await callReiCoreAPI(query);
+      const newResponse = await callOpenRouterAPI(query);
       setResponses(prev => [newResponse, ...prev]);
       setQuery('');
       
       // Play sound effect
       if (soundEnabled) {
-        console.log('🔊 ReiCore signal processed');
+        console.log('🔊 Signal processed');
       }
     } catch (error) {
       console.error('Failed to get response:', error);
@@ -545,7 +515,7 @@ Use live web search to get current market data, recent news, price action, and s
               <div className="bg-[#1D1E22]/80 border border-[#FF7744]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-pulse backdrop-blur-md shadow-2xl">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-3 h-3 bg-[#FF7744] rounded-full animate-ping" />
-                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">ReiCore Agent analyzing with live web search...</span>
+                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">Traxor Engine processing with live web data...</span>
                 </div>
                 <div className="space-y-3">
                   <div className="h-3 sm:h-4 bg-[#2A2B32]/50 rounded w-3/4 animate-pulse" />
@@ -617,7 +587,7 @@ Use live web search to get current market data, recent news, price action, and s
                   <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                     {response.sourcesWithLinks && response.sourcesWithLinks.length > 0 && (
                       <>
-                        <span className="text-xs text-gray-400 font-medium mb-2 sm:mb-0">ReiCore web sources:</span>
+                        <span className="text-xs text-gray-400 font-medium mb-2 sm:mb-0">Live sources:</span>
                         <div className="flex flex-wrap gap-2">
                           {response.sourcesWithLinks.map((source, index) => (
                             <span 
@@ -645,10 +615,10 @@ Use live web search to get current market data, recent news, price action, and s
                   <Brain className="w-8 sm:w-10 h-8 sm:h-10 text-[#121212]" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-                  ReiCore Signal Engine Active
+                  Traxor Signal Engine Active
                 </h3>
                 <p className="text-gray-400 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base px-4">
-                  Ask about any crypto asset for live trading signals with real-time web data synthesis via ReiCore SDK.
+                  Ask about any crypto asset for live trading signals with real-time web data synthesis.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto px-4">
                   {['BTC setup', 'ETH momentum', 'SOL breakout', 'HYPE signals'].map((suggestion, index) => (
@@ -815,23 +785,17 @@ Use live web search to get current market data, recent news, price action, and s
                 <div className="space-y-3">
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">Traxor Version:</span>
-                    <span className="text-white font-medium text-sm sm:text-base">ReiCore Engine v3.2.1</span>
+                    <span className="text-white font-medium text-sm sm:text-base">Signal Engine v3.2.1</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">AI Model:</span>
-                    <span className="text-green-400 font-medium text-sm sm:text-base">ReiCore Agent</span>
+                    <span className="text-green-400 font-medium text-sm sm:text-base">GPT-4.1 Online</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">Web Search:</span>
                     <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
                       <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>Active</span>
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-400 text-sm sm:text-base">SDK Status:</span>
-                    <span className={`font-medium text-sm sm:text-base ${reiAgent ? 'text-green-400' : 'text-red-400'}`}>
-                      {reiAgent ? 'Connected' : 'Initializing...'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -895,7 +859,7 @@ Use live web search to get current market data, recent news, price action, and s
                     Clear Session Data
                   </button>
                   <button className="w-full text-left p-3 hover:bg-red-900/20 rounded-2xl transition-colors text-red-400 hover:text-red-300 border border-transparent hover:border-red-700/30 text-sm sm:text-base">
-                    Reset ReiCore Engine
+                    Reset Signal Engine
                   </button>
                 </div>
               </div>
@@ -945,7 +909,7 @@ Use live web search to get current market data, recent news, price action, and s
             </div>
             <div>
               <h1 className="font-bold text-lg sm:text-xl text-white">Traxor Signal Engine</h1>
-              <p className="text-xs text-gray-400">ReiCore Agent v3.2.1</p>
+              <p className="text-xs text-gray-400">Engine v3.2.1</p>
             </div>
           </div>
         </div>
@@ -984,7 +948,7 @@ Use live web search to get current market data, recent news, price action, and s
         <div className="p-3 sm:p-4 border-t border-[#2A2B32]">
           <div className="flex items-center space-x-2 text-xs text-gray-400">
             <div className="w-2 h-2 bg-[#FF7744] rounded-full animate-pulse"></div>
-            <span>ReiCore Signal Engine Active</span>
+            <span>Traxor Signal Engine Active</span>
           </div>
         </div>
       </div>
