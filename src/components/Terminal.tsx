@@ -51,7 +51,6 @@ interface ResponseCard {
   bookmarked?: boolean;
   rawContent?: string;
   asset?: string;
-  currentPrice?: number;
   view?: string;
   entryZone?: string;
   takeProfits?: string;
@@ -59,6 +58,8 @@ interface ResponseCard {
   invalidateIf?: string;
   insights?: string[];
   sourcesWithLinks?: Array<{name: string, url: string}>;
+  currentPrice?: number;
+  token?: string;
 }
 
 interface WatchlistItem {
@@ -131,143 +132,6 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Token extraction function
-  const extractTokenFromQuery = (query: string): string => {
-    const upperQuery = query.toUpperCase();
-    
-    // Common crypto tokens and their variations
-    const tokenPatterns = [
-      { pattern: /\b(BITCOIN|BTC)\b/i, token: 'bitcoin' },
-      { pattern: /\b(ETHEREUM|ETH)\b/i, token: 'ethereum' },
-      { pattern: /\b(SOLANA|SOL)\b/i, token: 'solana' },
-      { pattern: /\b(CARDANO|ADA)\b/i, token: 'cardano' },
-      { pattern: /\b(POLKADOT|DOT)\b/i, token: 'polkadot' },
-      { pattern: /\b(CHAINLINK|LINK)\b/i, token: 'chainlink' },
-      { pattern: /\b(AVALANCHE|AVAX)\b/i, token: 'avalanche-2' },
-      { pattern: /\b(POLYGON|MATIC)\b/i, token: 'matic-network' },
-      { pattern: /\b(UNISWAP|UNI)\b/i, token: 'uniswap' },
-      { pattern: /\b(AAVE)\b/i, token: 'aave' },
-      { pattern: /\b(COMPOUND|COMP)\b/i, token: 'compound-governance-token' },
-      { pattern: /\b(MAKER|MKR)\b/i, token: 'maker' },
-      { pattern: /\b(SUSHI|SUSHISWAP)\b/i, token: 'sushi' },
-      { pattern: /\b(CURVE|CRV)\b/i, token: 'curve-dao-token' },
-      { pattern: /\b(YEARN|YFI)\b/i, token: 'yearn-finance' },
-      { pattern: /\b(SYNTHETIX|SNX)\b/i, token: 'havven' },
-      { pattern: /\b(COMPOUND|COMP)\b/i, token: 'compound-governance-token' },
-      { pattern: /\b(BALANCER|BAL)\b/i, token: 'balancer' },
-      { pattern: /\b(BANCOR|BNT)\b/i, token: 'bancor' },
-      { pattern: /\b(KYBER|KNC)\b/i, token: 'kyber-network-crystal' },
-      { pattern: /\b(LOOPRING|LRC)\b/i, token: 'loopring' },
-      { pattern: /\b(ENJIN|ENJ)\b/i, token: 'enjincoin' },
-      { pattern: /\b(BASIC ATTENTION|BAT)\b/i, token: 'basic-attention-token' },
-      { pattern: /\b(DECENTRALAND|MANA)\b/i, token: 'decentraland' },
-      { pattern: /\b(SANDBOX|SAND)\b/i, token: 'the-sandbox' },
-      { pattern: /\b(AXIE INFINITY|AXS)\b/i, token: 'axie-infinity' },
-      { pattern: /\b(GALA)\b/i, token: 'gala' },
-      { pattern: /\b(IMMUTABLE|IMX)\b/i, token: 'immutable-x' },
-      { pattern: /\b(FLOW)\b/i, token: 'flow' },
-      { pattern: /\b(THETA)\b/i, token: 'theta-token' },
-      { pattern: /\b(FILECOIN|FIL)\b/i, token: 'filecoin' },
-      { pattern: /\b(STORJ)\b/i, token: 'storj' },
-      { pattern: /\b(SIACOIN|SC)\b/i, token: 'siacoin' },
-      { pattern: /\b(ARWEAVE|AR)\b/i, token: 'arweave' },
-      { pattern: /\b(HELIUM|HNT)\b/i, token: 'helium' },
-      { pattern: /\b(INTERNET COMPUTER|ICP)\b/i, token: 'internet-computer' },
-      { pattern: /\b(NEAR PROTOCOL|NEAR)\b/i, token: 'near' },
-      { pattern: /\b(COSMOS|ATOM)\b/i, token: 'cosmos' },
-      { pattern: /\b(TERRA|LUNA)\b/i, token: 'terra-luna' },
-      { pattern: /\b(ALGORAND|ALGO)\b/i, token: 'algorand' },
-      { pattern: /\b(TEZOS|XTZ)\b/i, token: 'tezos' },
-      { pattern: /\b(STELLAR|XLM)\b/i, token: 'stellar' },
-      { pattern: /\b(MONERO|XMR)\b/i, token: 'monero' },
-      { pattern: /\b(ZCASH|ZEC)\b/i, token: 'zcash' },
-      { pattern: /\b(DASH)\b/i, token: 'dash' },
-      { pattern: /\b(LITECOIN|LTC)\b/i, token: 'litecoin' },
-      { pattern: /\b(BITCOIN CASH|BCH)\b/i, token: 'bitcoin-cash' },
-      { pattern: /\b(ETHEREUM CLASSIC|ETC)\b/i, token: 'ethereum-classic' },
-      { pattern: /\b(DOGECOIN|DOGE)\b/i, token: 'dogecoin' },
-      { pattern: /\b(SHIBA INU|SHIB)\b/i, token: 'shiba-inu' },
-      { pattern: /\b(PEPE)\b/i, token: 'pepe' },
-      { pattern: /\b(FLOKI)\b/i, token: 'floki' },
-      { pattern: /\b(BONK)\b/i, token: 'bonk' },
-      { pattern: /\b(WIF|DOGWIFHAT)\b/i, token: 'dogwifcoin' },
-      { pattern: /\b(POPCAT)\b/i, token: 'popcat' },
-      { pattern: /\b(MEW|CATS IN A DOGS WORLD)\b/i, token: 'cat-in-a-dogs-world' },
-      { pattern: /\b(BRETT)\b/i, token: 'brett' },
-      { pattern: /\b(MOODENG)\b/i, token: 'moo-deng' },
-      { pattern: /\b(PNUT|PEANUT)\b/i, token: 'peanut-the-squirrel' },
-      { pattern: /\b(GOAT)\b/i, token: 'goatseus-maximus' },
-      { pattern: /\b(FARTCOIN|FART)\b/i, token: 'fartcoin' },
-      { pattern: /\b(HYPE)\b/i, token: 'hyperliquid' },
-      { pattern: /\b(VINE)\b/i, token: 'vine' },
-      { pattern: /\b(AI16Z)\b/i, token: 'ai16z' },
-      { pattern: /\b(VIRTUAL)\b/i, token: 'virtual-protocol' },
-      { pattern: /\b(ZEREBRO)\b/i, token: 'zerebro' },
-      { pattern: /\b(GRIFFAIN)\b/i, token: 'griffain' },
-      { pattern: /\b(ELIZA)\b/i, token: 'eliza' }
-    ];
-
-    for (const { pattern, token } of tokenPatterns) {
-      if (pattern.test(query)) {
-        return token;
-      }
-    }
-
-    // Fallback to SOL if no token detected
-    return 'solana';
-  };
-
-  // Live price fetching function
-  const fetchLiveTokenPrice = async (tokenId: string): Promise<number> => {
-    try {
-      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${tokenId}&vs_currencies=usd`;
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const price = data[tokenId]?.usd;
-      
-      if (!price) {
-        throw new Error(`Price not found for token: ${tokenId}`);
-      }
-      
-      return price;
-    } catch (error) {
-      console.error('Failed to fetch live price:', error);
-      
-      // Fallback to watchlist prices
-      const fallbackPrices: Record<string, number> = {
-        'bitcoin': 107607,
-        'ethereum': 2740.4,
-        'solana': 158.63,
-        'hyperliquid': 41.480,
-        'moo-deng': 0.18271,
-        'peanut-the-squirrel': 0.25982,
-        'fartcoin': 1.3412,
-        'vine': 0.035243
-      };
-      
-      return fallbackPrices[tokenId] || 100; // Default fallback
-    }
-  };
-
-  // Signal validation function
-  const validateSignal = (content: string): boolean => {
-    const requiredFields = ['💡 View:', '🎯 Entry Zone:', 'TP1 $', 'TP2 $', 'TP3 $', '🛑 Stop Loss:', '🚨 Invalidate if:'];
-    const hasAllFields = requiredFields.every(field => content.includes(field));
-    
-    // Check for placeholder text
-    const hasPlaceholders = content.includes('___') || content.includes('[') || content.includes(']');
-    
-    // Check for vague language
-    const hasVagueLanguage = /cautiously|watch carefully|monitor|unclear/i.test(content);
-    
-    return hasAllFields && !hasPlaceholders && !hasVagueLanguage;
-  };
-
   // Mock sources pool - Hyperliquid API always included, others random
   const mockSources = [
     { name: 'CoinGecko Pro', url: 'https://coingecko.com' },
@@ -294,30 +158,214 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return [hyperliquidSource, ...randomSources];
   };
 
-  // Updated API call function with live price integration and strict validation
+  // Token extraction function
+  function extractTokenFromQuery(query: string): string {
+    const matches = query.match(/\b(BTC|ETH|SOL|HYPE|MOODENG|PNUT|FARTCOIN|VINE|AVAX|LINK|ADA|DOT|MATIC|UNI|AAVE|COMP|MKR|SNX|CRV|YFI|SUSHI|1INCH|BAL|LRC|ZRX|KNC|REN|BAND|ALPHA|RUNE|LUNA|UST|ATOM|OSMO|JUNO|SCRT|KAVA|HARD|SWP|XVS|CAKE|BNB|BUSD|XRP|LTC|BCH|ETC|ZEC|DASH|XMR|TRX|VET|THETA|FIL|EOS|IOTA|NEO|ONT|QTUM|ICX|ZIL|BAT|ENJ|MANA|SAND|AXS|SLP|ILV|GALA|CHZ|FLOW|DYDX|IMX|LPT|GRT|AUDIO|MASK|API3|BADGER|FARM|CREAM|PICKLE|COVER|HEGIC|BOND|RARI|POOL|INDEX|DPI|MVI|BED|DATA|OCEAN|FET|AGI|AGIX|RLC|NMR|MLN|REP|STORJ|SC|MAID|ANT|GNT|GOLEM|BAL|LEND|AAVE|COMP|MKR|SNX|CRV|YFI|SUSHI|1INCH|UMA|BADGER|FARM|CREAM|PICKLE|COVER|HEGIC|BOND|RARI|POOL|INDEX|DPI|MVI|BED|DATA|OCEAN|FET|AGI|AGIX|RLC|NMR|MLN|REP|STORJ|SC|MAID|ANT|GNT|GOLEM)\b/gi);
+    
+    if (matches && matches.length > 0) {
+      return matches[0].toLowerCase();
+    }
+    
+    // Check for full names
+    const fullNameMatches = query.match(/\b(bitcoin|ethereum|solana|avalanche|chainlink|cardano|polkadot|polygon|uniswap|aave|compound|maker|synthetix|curve|yearn|sushiswap|1inch|balancer|loopring|0x|kyber|ren|band|alpha|thorchain|luna|terra|cosmos|osmosis|juno|secret|kava|hard|swipe|venus|pancakeswap|binance|ripple|litecoin|bitcoin cash|ethereum classic|zcash|dash|monero|tron|vechain|theta|filecoin|eos|iota|neo|ontology|qtum|icon|zilliqa|basic attention|enjin|decentraland|sandbox|axie infinity|smooth love potion|illuvium|gala|chiliz|flow|dydx|immutable|livepeer|graph|audius|mask|api3|badger|harvest|cream|pickle|cover|hegic|barnbridge|rarible|pooltogether|index|defi pulse|metaverse|bankless|data|ocean|fetch|singularitynet|rlc|numeraire|melon|augur|storj|siacoin|maidsafe|aragon|golem)\b/gi);
+    
+    if (fullNameMatches && fullNameMatches.length > 0) {
+      const tokenMap: Record<string, string> = {
+        'bitcoin': 'btc',
+        'ethereum': 'eth',
+        'solana': 'sol',
+        'avalanche': 'avax',
+        'chainlink': 'link',
+        'cardano': 'ada',
+        'polkadot': 'dot',
+        'polygon': 'matic',
+        'uniswap': 'uni',
+        'aave': 'aave',
+        'compound': 'comp',
+        'maker': 'mkr',
+        'synthetix': 'snx',
+        'curve': 'crv',
+        'yearn': 'yfi',
+        'sushiswap': 'sushi',
+        '1inch': '1inch',
+        'balancer': 'bal',
+        'loopring': 'lrc',
+        '0x': 'zrx',
+        'kyber': 'knc',
+        'ren': 'ren',
+        'band': 'band',
+        'alpha': 'alpha',
+        'thorchain': 'rune',
+        'luna': 'luna',
+        'terra': 'ust',
+        'cosmos': 'atom',
+        'osmosis': 'osmo',
+        'juno': 'juno',
+        'secret': 'scrt',
+        'kava': 'kava',
+        'hard': 'hard',
+        'swipe': 'swp',
+        'venus': 'xvs',
+        'pancakeswap': 'cake',
+        'binance': 'bnb',
+        'ripple': 'xrp',
+        'litecoin': 'ltc',
+        'bitcoin cash': 'bch',
+        'ethereum classic': 'etc',
+        'zcash': 'zec',
+        'dash': 'dash',
+        'monero': 'xmr',
+        'tron': 'trx',
+        'vechain': 'vet',
+        'theta': 'theta',
+        'filecoin': 'fil',
+        'eos': 'eos',
+        'iota': 'iota',
+        'neo': 'neo',
+        'ontology': 'ont',
+        'qtum': 'qtum',
+        'icon': 'icx',
+        'zilliqa': 'zil',
+        'basic attention': 'bat',
+        'enjin': 'enj',
+        'decentraland': 'mana',
+        'sandbox': 'sand',
+        'axie infinity': 'axs',
+        'smooth love potion': 'slp',
+        'illuvium': 'ilv',
+        'gala': 'gala',
+        'chiliz': 'chz',
+        'flow': 'flow',
+        'dydx': 'dydx',
+        'immutable': 'imx',
+        'livepeer': 'lpt',
+        'graph': 'grt',
+        'audius': 'audio',
+        'mask': 'mask',
+        'api3': 'api3'
+      };
+      return tokenMap[fullNameMatches[0].toLowerCase()] || fullNameMatches[0].toLowerCase();
+    }
+    
+    return 'sol'; // Default to SOL
+  }
+
+  // Live price fetching function
+  async function fetchLiveTokenPrice(tokenId: string): Promise<number> {
+    try {
+      const tokenMap: Record<string, string> = {
+        'btc': 'bitcoin',
+        'eth': 'ethereum', 
+        'sol': 'solana',
+        'avax': 'avalanche-2',
+        'link': 'chainlink',
+        'ada': 'cardano',
+        'dot': 'polkadot',
+        'matic': 'matic-network',
+        'uni': 'uniswap',
+        'aave': 'aave',
+        'comp': 'compound-governance-token',
+        'mkr': 'maker',
+        'snx': 'havven',
+        'crv': 'curve-dao-token',
+        'yfi': 'yearn-finance',
+        'sushi': 'sushi',
+        '1inch': '1inch',
+        'bal': 'balancer',
+        'lrc': 'loopring',
+        'zrx': '0x',
+        'knc': 'kyber-network-crystal',
+        'ren': 'republic-protocol',
+        'band': 'band-protocol',
+        'alpha': 'alpha-finance',
+        'rune': 'thorchain',
+        'luna': 'terra-luna',
+        'ust': 'terrausd',
+        'atom': 'cosmos',
+        'osmo': 'osmosis',
+        'juno': 'juno-network',
+        'scrt': 'secret',
+        'kava': 'kava',
+        'hard': 'kava-lend',
+        'swp': 'kava-swap',
+        'xvs': 'venus',
+        'cake': 'pancakeswap-token',
+        'bnb': 'binancecoin',
+        'xrp': 'ripple',
+        'ltc': 'litecoin',
+        'bch': 'bitcoin-cash',
+        'etc': 'ethereum-classic',
+        'zec': 'zcash',
+        'dash': 'dash',
+        'xmr': 'monero',
+        'trx': 'tron',
+        'vet': 'vechain',
+        'theta': 'theta-token',
+        'fil': 'filecoin',
+        'eos': 'eos',
+        'iota': 'iota',
+        'neo': 'neo',
+        'ont': 'ontology',
+        'qtum': 'qtum',
+        'icx': 'icon',
+        'zil': 'zilliqa',
+        'bat': 'basic-attention-token',
+        'enj': 'enjincoin',
+        'mana': 'decentraland',
+        'sand': 'the-sandbox',
+        'axs': 'axie-infinity',
+        'slp': 'smooth-love-potion',
+        'ilv': 'illuvium',
+        'gala': 'gala',
+        'chz': 'chiliz',
+        'flow': 'flow',
+        'dydx': 'dydx',
+        'imx': 'immutable-x',
+        'lpt': 'livepeer',
+        'grt': 'the-graph',
+        'audio': 'audius',
+        'mask': 'mask-network',
+        'api3': 'api3',
+        'hype': 'hyperliquid',
+        'moodeng': 'moo-deng',
+        'pnut': 'peanut-the-squirrel',
+        'fartcoin': 'fartcoin',
+        'vine': 'vine'
+      };
+
+      const coingeckoId = tokenMap[tokenId.toLowerCase()] || tokenId.toLowerCase();
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      return data[coingeckoId]?.usd ?? 0;
+    } catch (error) {
+      console.error('Failed to fetch live price:', error);
+      return 0;
+    }
+  }
+
+  // Response validation function
+  function validateSignal(content: string): boolean {
+    const requiredFields = ['💡 View:', '🎯 Entry Zone:', 'TP1 $', 'TP2 $', 'TP3 $', '🛑 Stop Loss:', '🚨 Invalidate if:'];
+    return requiredFields.every(field => content.includes(field));
+  }
+
+  // Updated API call function using proper GPT-4.1 web:online with live price injection
   const callOpenRouterAPI = async (userQuery: string): Promise<ResponseCard> => {
     try {
-      // Extract token and fetch live price
-      const tokenId = extractTokenFromQuery(userQuery);
-      const livePrice = await fetchLiveTokenPrice(tokenId);
+      const token = extractTokenFromQuery(userQuery);
+      const livePrice = await fetchLiveTokenPrice(token);
       
-      const currentDate = new Date();
-      const formattedDate = currentDate.toLocaleDateString('en-US', { 
+      const currentDate = new Date().toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
       });
 
-      // Get token symbol for display
-      const tokenSymbol = tokenId.split('-')[0].toUpperCase();
-      const displaySymbol = tokenSymbol === 'BITCOIN' ? 'BTC' : 
-                           tokenSymbol === 'ETHEREUM' ? 'ETH' : 
-                           tokenSymbol === 'SOLANA' ? 'SOL' : 
-                           tokenSymbol === 'HYPERLIQUID' ? 'HYPE' :
-                           tokenSymbol === 'MOO' ? 'MOODENG' :
-                           tokenSymbol === 'PEANUT' ? 'PNUT' :
-                           tokenSymbol;
+      const formattedToken = token.toUpperCase();
 
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -328,52 +376,41 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
           'X-Title': 'Traxor Intelligence Terminal',
         },
         body: JSON.stringify({
-          model: 'openai/gpt-4o-search-preview',
+          model: 'openai/gpt-4.1:online',
+          temperature: 0.5,
+          plugins: [
+            {
+              id: 'web',
+              search_prompt: `Search for real-time data on ${formattedToken} as of ${currentDate}. Prioritize live on-chain flows, recent news, exchange activity, sentiment, and technical indicators from sites like cryptoslate.com, coindesk.com, lookonchain.com, etc.`
+            }
+          ],
           messages: [
             {
               role: 'system',
-              content: `You are a tactical crypto trading strategist. Your job is to produce complete, actionable trade setups based on real-time market context. 
-
-CRITICAL REQUIREMENTS:
-- All signals must include a directional view, entry zone, THREE take-profits, a stop loss, and invalidation trigger
-- Every level must be justified by technical, on-chain, or sentiment data
-- Do not use vague language or skip fields
-- You are not allowed to skip or omit any values
-- If any field is missing, return: "Unable to produce complete signal. Required fields were missing."
-- Never say "cautiously bullish" or "watch carefully". Pick a clear view.
-
-Use the injected live price below as the anchor for all analysis.`
+              content: `You are a tactical crypto trading strategist. Your job is to produce complete, actionable trade setups based on real-time market context. All signals must include a directional view, entry zone, three take-profits, a stop loss, and invalidation trigger. Every level must be justified by technical, on-chain, or sentiment data. Do not use vague language or skip fields. Use the injected live price below as the anchor for all analysis.`
             },
             {
               role: 'user',
-              content: `Today is ${formattedDate}.
+              content: `Today is ${currentDate}.
 
-The current live price of ${displaySymbol} is $${livePrice}. Use this price as the fixed market reference for all analysis.
+The current live price of ${formattedToken} is $${livePrice}. Use this price as the fixed market reference for all analysis.
 
 Give me a tactical trading signal for the following query:
 
 "${userQuery}"
 
-IMPORTANT: All fields below must be filled completely. If any are missing, the response is invalid and must not be returned.
-
-MANDATORY FIELDS (ALL MUST BE COMPLETED):  
-• 💡 View: Bullish/Bearish/Neutral → [Must include clear justification using recent chart, sentiment, or flow data. Do not say "cautiously".]  
-• 🎯 Entry Zone: $___ to $___ → [Use recent support, price structure, or VWAP levels]  
-• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE MANDATORY. Do not skip. Use structure or fibs if needed.]  
-• 🛑 Stop Loss: $___ or "15m close below $___" → [Use logical structure-based SL]  
-• 🚨 Invalidate if: [E.g., BTC breaks down, RSI divergence, funding flip]
-
 🧠 Output in this exact format:
 
-🧠 Signal — ${formattedDate}
-📈 Asset: ${displaySymbol}
-💰 Current Price: $${livePrice}
+🧠 Signal — ${currentDate}
+📈 Asset: ${formattedToken}
+💰 Current Price: $${livePrice} → Use this value as your technical and structural baseline
 
-• 💡 View: Bullish/Bearish/Neutral → [Directional bias with clear justification]
-• 🎯 Entry Zone: $___ to $___ → [Support or demand zone]
-• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE ARE REQUIRED]
-• 🛑 Stop Loss: $___ (or "15m close below $___")
-• 🚨 Invalidate if: [Precise macro or flow condition]
+MANDATORY FIELDS (ALL MUST BE COMPLETED):
+• 💡 View: Bullish/Bearish/Neutral → [Must include clear justification using recent chart, sentiment, or flow data. Do not say "cautiously".]
+• 🎯 Entry Zone: $___ to $___ → [Use recent support, price structure, or VWAP levels]
+• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE MANDATORY. Do not skip. Use structure or fibs if needed.]
+• 🛑 Stop Loss: $___ or "15m close below $___" → [Use logical structure-based SL]
+• 🚨 Invalidate if: [E.g., BTC breaks down, RSI divergence, funding flip]
 
 🔍 Insights:
 • What's driving this move? → [MANDATORY: News, whale flow, ETF, narrative]
@@ -381,11 +418,13 @@ MANDATORY FIELDS (ALL MUST BE COMPLETED):
 • Supporting/Contradicting signals → [MANDATORY: RSI, volume, MACD, sentiment]
 • Wildcard/meta → [MANDATORY: Fear/Greed, macro, CPI, liquidations]
 
+You are not allowed to skip or omit any values. If any field is missing, return a system message:
+"Unable to produce complete signal. Required fields were missing."
+
+Never say "cautiously bullish" or "watch carefully". Pick a clear view.
 IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use the injected price and real-time data to build the setup.`
             }
-          ],
-          temperature: 0.5,
-          max_tokens: 800
+          ]
         })
       });
 
@@ -396,19 +435,18 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
       const data = await response.json();
       let content = data.choices[0].message.content;
 
-      // Validate the signal before processing
+      // Remove ** formatting from content
+      content = content.replace(/\*\*(.*?)\*\*/g, '$1');
+
+      // Validate signal completeness
       if (!validateSignal(content)) {
         throw new Error("🚫 Incomplete signal: mandatory fields were missing. GPT failed to return a valid trade setup.");
       }
 
-      // Remove ** formatting from content
-      content = content.replace(/\*\*(.*?)\*\*/g, '$1');
-
       // Enhanced parsing for the new format
       const lines = content.split('\n').filter(line => line.trim());
       let headline = 'Crypto Trading Signal';
-      let asset = displaySymbol;
-      let currentPrice = livePrice;
+      let asset = formattedToken;
       let view = '';
       let entryZone = '';
       let takeProfits = '';
@@ -430,16 +468,6 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
         // Extract asset
         if (trimmedLine.includes('📈 Asset:')) {
           asset = trimmedLine.replace('📈 Asset:', '').trim();
-          continue;
-        }
-
-        // Extract current price
-        if (trimmedLine.includes('💰 Current Price:')) {
-          const priceMatch = trimmedLine.match(/\$([0-9,]+\.?[0-9]*)/);
-          if (priceMatch) {
-            currentPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
-          }
-          bullets.push(trimmedLine.substring(1).trim());
           continue;
         }
         
@@ -498,7 +526,7 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
       return {
         id: Date.now().toString(),
         query: userQuery,
-        headline: headline || `Crypto Signal — ${formattedDate}`,
+        headline: headline || `Crypto Signal — ${currentDate}`,
         bullets: allBullets,
         sentiment: 'Traxor Engine',
         sources: randomSources.map(s => s.name),
@@ -506,22 +534,24 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
         bookmarked: false,
         rawContent: content,
         asset,
-        currentPrice,
         view,
         entryZone,
         takeProfits,
         stopLoss,
         invalidateIf,
         insights,
-        sourcesWithLinks: randomSources
+        sourcesWithLinks: randomSources,
+        currentPrice: livePrice,
+        token: formattedToken
       };
 
     } catch (error) {
       console.error('API call failed:', error);
       
-      // Enhanced fallback with live price
-      const tokenId = extractTokenFromQuery(userQuery);
-      const fallbackPrice = await fetchLiveTokenPrice(tokenId).catch(() => 100);
+      // Fallback to mock response with Hyperliquid API always included
+      const token = extractTokenFromQuery(userQuery);
+      const livePrice = await fetchLiveTokenPrice(token);
+      const formattedToken = token.toUpperCase();
       const randomSources = getRandomSources(3);
       
       return {
@@ -529,7 +559,7 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
         query: userQuery,
         headline: `Crypto Signal — ${new Date().toLocaleDateString()}`,
         bullets: [
-          `💰 Current Price: $${fallbackPrice}`,
+          `💰 Current Price: $${livePrice}`,
           '💡 View: Bullish → Strong momentum continuation pattern',
           '🎯 Entry Zone: $42,800 to $43,200',
           '💰 Take Profits: TP1 $45,500 → TP2 $47,200 → TP3 $49,000',
@@ -543,8 +573,10 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
         sources: randomSources.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
-        currentPrice: fallbackPrice,
-        sourcesWithLinks: randomSources
+        sourcesWithLinks: randomSources,
+        currentPrice: livePrice,
+        token: formattedToken,
+        asset: formattedToken
       };
     }
   };
@@ -632,23 +664,25 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
                     <h3 className="text-lg sm:text-xl font-semibold text-[#FF7744] mb-3 leading-tight font-mono">
                       {response.headline}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      {response.asset && (
-                        <span className="inline-block bg-[#33211D]/60 text-[#FF7744] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#FF7744]/20">
-                          📈 {response.asset}
-                        </span>
-                      )}
-                      {response.currentPrice && (
-                        <span className="inline-block bg-[#1A2B1A]/60 text-green-400 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-green-400/20 font-mono">
-                          💰 ${response.currentPrice.toLocaleString()}
-                        </span>
-                      )}
-                      {response.sentiment && (
-                        <span className="inline-block bg-[#33211D]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20">
-                          {response.sentiment}
-                        </span>
-                      )}
-                    </div>
+                    {(response.asset || response.currentPrice) && (
+                      <div className="flex items-center space-x-2 mb-3">
+                        {response.asset && (
+                          <span className="inline-block bg-[#33211D]/60 text-[#FF7744] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#FF7744]/20">
+                            📈 {response.asset}
+                          </span>
+                        )}
+                        {response.currentPrice && response.currentPrice > 0 && (
+                          <span className="inline-block bg-green-900/40 text-green-400 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-green-700/30">
+                            💰 ${response.currentPrice.toLocaleString()}
+                          </span>
+                        )}
+                        {response.sentiment && (
+                          <span className="inline-block bg-[#33211D]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20">
+                            {response.sentiment}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center space-x-1 sm:space-x-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2 sm:ml-4 flex-shrink-0">
                     <button 
@@ -854,9 +888,11 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
                       <p className="text-xs sm:text-sm text-gray-400 mb-3 bg-[#2B2417]/60 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl inline-block border border-[#EBC26E]/20 break-all">
                         <span className="text-[#FF7744] font-bold">{'>'}</span> {response.query}
                       </p>
-                      {response.currentPrice && (
-                        <div className="text-xs text-gray-500 mb-2">
-                          Live price: ${response.currentPrice.toLocaleString()}
+                      {response.currentPrice && response.currentPrice > 0 && (
+                        <div className="mb-2">
+                          <span className="inline-block bg-green-900/40 text-green-400 px-2 py-1 rounded-full text-xs font-medium border border-green-700/30">
+                            💰 ${response.currentPrice.toLocaleString()}
+                          </span>
                         </div>
                       )}
                       <div className="text-xs text-gray-500">
@@ -899,20 +935,20 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">AI Model:</span>
-                    <span className="text-green-400 font-medium text-sm sm:text-base">Traxor Engine</span>
+                    <span className="text-green-400 font-medium text-sm sm:text-base">GPT-4.1 Web:Online</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-400 text-sm sm:text-base">Live Price Validation:</span>
+                    <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
+                      <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>Enabled</span>
+                    </span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">Signal Engine:</span>
                     <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
                       <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>Active</span>
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-400 text-sm sm:text-base">Live Price Validation:</span>
-                    <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
-                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>Enabled</span>
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -956,9 +992,9 @@ IMPORTANT: Do not leave any field blank. Format must be followed exactly. Use th
                 <div className="space-y-3">
                   {['CoinGecko API', 'Hyperliquid API', 'Glassnode Analytics', 'DeFiLlama', 'CoinMarketCap', 'Messari'].map((source, index) => (
                     <div key={index} className="flex items-center justify-between py-2">
-                      <span className={`text-sm sm:text-base ${source === 'CoinGecko API' ? 'text-[#FF7744] font-semibold' : source === 'Hyperliquid API' ? 'text-[#FF7744] font-semibold' : 'text-gray-300'}`}>
+                      <span className={`text-sm sm:text-base ${(source === 'Hyperliquid API' || source === 'CoinGecko API') ? 'text-[#FF7744] font-semibold' : 'text-gray-300'}`}>
                         {source}
-                        {(source === 'CoinGecko API' || source === 'Hyperliquid API') && <span className="ml-2 text-xs bg-[#33211D]/60 px-2 py-0.5 rounded-full border border-[#FF7744]/20">Primary</span>}
+                        {(source === 'Hyperliquid API' || source === 'CoinGecko API') && <span className="ml-2 text-xs bg-[#33211D]/60 px-2 py-0.5 rounded-full border border-[#FF7744]/20">Primary</span>}
                       </span>
                       <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full shadow-sm animate-pulse"></div>
                     </div>
