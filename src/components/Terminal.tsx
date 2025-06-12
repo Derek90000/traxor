@@ -40,8 +40,154 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-// Import ReiCore SDK
-import { ReiCoreSdk } from "reicore_sdk";
+// Mock ReiCore SDK implementation
+class MockReiCoreSdk {
+  constructor(apiKey: string) {
+    // Mock constructor
+  }
+
+  chat = {
+    completion: async (params: any) => {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+      
+      // Mock response structure
+      return {
+        choices: [{
+          message: {
+            content: this.generateMockResponse(params.messages[1]?.content || '')
+          }
+        }]
+      };
+    }
+  };
+
+  private generateMockResponse(query: string): string {
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
+    // Extract potential asset from query
+    const assets = ['BTC', 'ETH', 'SOL', 'HYPE', 'MOODENG', 'PNUT', 'FARTCOIN', 'VINE'];
+    const mentionedAsset = assets.find(asset => 
+      query.toLowerCase().includes(asset.toLowerCase())
+    ) || 'BTC';
+
+    // Mock price data
+    const mockPrices: { [key: string]: string } = {
+      'BTC': '$107,607',
+      'ETH': '$2,740.4',
+      'SOL': '$158.63',
+      'HYPE': '$41.480',
+      'MOODENG': '$0.18271',
+      'PNUT': '$0.25982',
+      'FARTCOIN': '$1.3412',
+      'VINE': '$0.035243'
+    };
+
+    const mockEntryZones: { [key: string]: string } = {
+      'BTC': '$106,800 to $107,200',
+      'ETH': '$2,720 to $2,760',
+      'SOL': '$156 to $160',
+      'HYPE': '$40.50 to $42.00',
+      'MOODENG': '$0.175 to $0.190',
+      'PNUT': '$0.250 to $0.270',
+      'FARTCOIN': '$1.30 to $1.38',
+      'VINE': '$0.032 to $0.038'
+    };
+
+    const mockTakeProfits: { [key: string]: string } = {
+      'BTC': 'TP1 $109,500 → TP2 $112,000 → TP3 $115,500',
+      'ETH': 'TP1 $2,850 → TP2 $2,950 → TP3 $3,100',
+      'SOL': 'TP1 $165 → TP2 $172 → TP3 $180',
+      'HYPE': 'TP1 $44.50 → TP2 $47.20 → TP3 $50.00',
+      'MOODENG': 'TP1 $0.195 → TP2 $0.210 → TP3 $0.225',
+      'PNUT': 'TP1 $0.285 → TP2 $0.310 → TP3 $0.340',
+      'FARTCOIN': 'TP1 $1.45 → TP2 $1.58 → TP3 $1.72',
+      'VINE': 'TP1 $0.042 → TP2 $0.048 → TP3 $0.055'
+    };
+
+    const mockStopLoss: { [key: string]: string } = {
+      'BTC': '$105,500 (15m close below)',
+      'ETH': '$2,680 (hard exit)',
+      'SOL': '$152 (15m close below)',
+      'HYPE': '$39.50 (hard exit)',
+      'MOODENG': '$0.165 (15m close below)',
+      'PNUT': '$0.235 (hard exit)',
+      'FARTCOIN': '$1.25 (15m close below)',
+      'VINE': '$0.030 (hard exit)'
+    };
+
+    const views = ['Bullish', 'Bearish', 'Neutral'];
+    const randomView = views[Math.floor(Math.random() * views.length)];
+
+    const viewReasons = {
+      'Bullish': 'Strong momentum continuation pattern with volume confirmation',
+      'Bearish': 'Rejection at key resistance with bearish divergence forming',
+      'Neutral': 'Consolidation phase with mixed signals, awaiting breakout direction'
+    };
+
+    const catalysts = [
+      'Whale accumulation detected in last 6 hours',
+      'Options flow showing institutional positioning',
+      'Social sentiment shift via on-chain metrics',
+      'Technical breakout from consolidation pattern',
+      'Volume spike indicating smart money movement',
+      'Funding rate normalization suggesting trend continuation'
+    ];
+
+    const chartBehaviors = [
+      'Bullish flag formation with volume confirmation',
+      'Support/resistance flip at key psychological level',
+      'Higher lows pattern indicating accumulation phase',
+      'Breakout from descending wedge pattern',
+      'Rejection at previous high with retest potential',
+      'Consolidation near key Fibonacci retracement level'
+    ];
+
+    const supportingSignals = [
+      'RSI showing oversold bounce potential, funding rates neutral',
+      'Options flow showing bullish positioning, OI increasing',
+      'Volume profile suggests strong support at current levels',
+      'MACD showing bullish crossover with momentum building',
+      'On-chain metrics indicate accumulation by long-term holders',
+      'Derivatives data showing reduced selling pressure'
+    ];
+
+    const wildcardFactors = [
+      'Fear & Greed index at extreme levels, contrarian opportunity',
+      'Market sentiment and macro factors provide additional context',
+      'Correlation with traditional markets breaking down',
+      'Regulatory clarity providing positive backdrop',
+      'Institutional adoption narrative gaining momentum',
+      'Technical structure aligning with fundamental outlook'
+    ];
+
+    const randomCatalyst = catalysts[Math.floor(Math.random() * catalysts.length)];
+    const randomChartBehavior = chartBehaviors[Math.floor(Math.random() * chartBehaviors.length)];
+    const randomSupportingSignal = supportingSignals[Math.floor(Math.random() * supportingSignals.length)];
+    const randomWildcard = wildcardFactors[Math.floor(Math.random() * wildcardFactors.length)];
+
+    return `🧠 Signal — ${currentDate}
+📈 Asset: ${mentionedAsset}
+💰 Current Price: ${mockPrices[mentionedAsset] || '$42,850'}
+
+• 💡 View: ${randomView} → ${viewReasons[randomView as keyof typeof viewReasons]}
+• 🎯 Entry Zone: ${mockEntryZones[mentionedAsset] || '$42,800 to $43,200'}
+• 💰 Take Profits: ${mockTakeProfits[mentionedAsset] || 'TP1 $45,500 → TP2 $47,200 → TP3 $49,000'}
+• 🛑 Stop Loss: ${mockStopLoss[mentionedAsset] || '$41,500 (hard exit)'}
+• 🚨 Invalidate if: ${mentionedAsset} dumps 3%, funding > +0.3%
+
+🔍 Insights:
+• What's driving this move? → ${randomCatalyst}
+• Recent chart behavior → ${randomChartBehavior}
+• Supporting/Contradicting signals → ${randomSupportingSignal}
+• Wildcard/Meta factor → ${randomWildcard}`;
+  }
+}
 
 interface ResponseCard {
   id: string;
@@ -99,8 +245,8 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   const [sourceIndex, setSourceIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize ReiCore SDK with your API key
-  const rei = new ReiCoreSdk("pk_rei_68435a522450b95277f1cfc9.147a8f17223f17c9a8091722a028177383c0ea4640b5e827e2a073ed7c72194e.1a18eb03f8c1d8849269f08de5b73d41703d714dbc421d3315f4932795636ee0");
+  // Initialize Mock ReiCore SDK
+  const rei = new MockReiCoreSdk("mock_api_key");
 
   // Mock data with updated market data
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([
@@ -186,7 +332,7 @@ You are a tactical crypto trading strategist. Provide fully structured trading s
 ALL FIELDS ARE MANDATORY. No blanks or vague language.
 `;
 
-  // Updated API call function using ReiCore SDK
+  // Updated API call function using Mock ReiCore SDK
   const callReiCoreAPI = async (userQuery: string): Promise<ResponseCard> => {
     try {
       const currentDate = new Date();
