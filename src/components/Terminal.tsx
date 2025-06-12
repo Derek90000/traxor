@@ -205,7 +205,7 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
         },
         body: JSON.stringify({
           model: 'openai/gpt-4.1:online',
-          temperature: 0.3,
+          temperature: 0.7,
           top_p: 1.0,
           frequency_penalty: 0,
           presence_penalty: 0,
