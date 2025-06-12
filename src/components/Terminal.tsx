@@ -339,7 +339,7 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
           plugins: [
             {
               id: 'web',
-              max_results: 10,
+              max_results: 30,
               search_prompt: `Search for real-time ${tokenSymbol} crypto market data, news, and analysis as of ${formattedDate}. Current price is $${livePrice}. Focus on recent price action, volume, sentiment, and technical analysis from sources like coindesk.com, cryptoslate.com, beincrypto.com, cointelegraph.com, lookonchain.com, and other crypto news sites.`
             }
           ],
