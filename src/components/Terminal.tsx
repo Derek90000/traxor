@@ -40,155 +40,6 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-// Mock ReiCore SDK implementation
-class MockReiCoreSdk {
-  constructor(apiKey: string) {
-    // Mock constructor
-  }
-
-  chat = {
-    completion: async (params: any) => {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-      
-      // Mock response structure
-      return {
-        choices: [{
-          message: {
-            content: this.generateMockResponse(params.messages[1]?.content || '')
-          }
-        }]
-      };
-    }
-  };
-
-  private generateMockResponse(query: string): string {
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-
-    // Extract potential asset from query
-    const assets = ['BTC', 'ETH', 'SOL', 'HYPE', 'MOODENG', 'PNUT', 'FARTCOIN', 'VINE'];
-    const mentionedAsset = assets.find(asset => 
-      query.toLowerCase().includes(asset.toLowerCase())
-    ) || 'BTC';
-
-    // Mock price data
-    const mockPrices: { [key: string]: string } = {
-      'BTC': '$107,607',
-      'ETH': '$2,740.4',
-      'SOL': '$158.63',
-      'HYPE': '$41.480',
-      'MOODENG': '$0.18271',
-      'PNUT': '$0.25982',
-      'FARTCOIN': '$1.3412',
-      'VINE': '$0.035243'
-    };
-
-    const mockEntryZones: { [key: string]: string } = {
-      'BTC': '$106,800 to $107,200',
-      'ETH': '$2,720 to $2,760',
-      'SOL': '$156 to $160',
-      'HYPE': '$40.50 to $42.00',
-      'MOODENG': '$0.175 to $0.190',
-      'PNUT': '$0.250 to $0.270',
-      'FARTCOIN': '$1.30 to $1.38',
-      'VINE': '$0.032 to $0.038'
-    };
-
-    const mockTakeProfits: { [key: string]: string } = {
-      'BTC': 'TP1 $109,500 → TP2 $112,000 → TP3 $115,500',
-      'ETH': 'TP1 $2,850 → TP2 $2,950 → TP3 $3,100',
-      'SOL': 'TP1 $165 → TP2 $172 → TP3 $180',
-      'HYPE': 'TP1 $44.50 → TP2 $47.20 → TP3 $50.00',
-      'MOODENG': 'TP1 $0.195 → TP2 $0.210 → TP3 $0.225',
-      'PNUT': 'TP1 $0.285 → TP2 $0.310 → TP3 $0.340',
-      'FARTCOIN': 'TP1 $1.45 → TP2 $1.58 → TP3 $1.72',
-      'VINE': 'TP1 $0.042 → TP2 $0.048 → TP3 $0.055'
-    };
-
-    const mockStopLoss: { [key: string]: string } = {
-      'BTC': '$105,500 (15m close below)',
-      'ETH': '$2,680 (hard exit)',
-      'SOL': '$152 (15m close below)',
-      'HYPE': '$39.50 (hard exit)',
-      'MOODENG': '$0.165 (15m close below)',
-      'PNUT': '$0.235 (hard exit)',
-      'FARTCOIN': '$1.25 (15m close below)',
-      'VINE': '$0.030 (hard exit)'
-    };
-
-    const views = ['Bullish', 'Bearish', 'Neutral'];
-    const randomView = views[Math.floor(Math.random() * views.length)];
-
-    const viewReasons = {
-      'Bullish': 'Strong momentum continuation pattern with volume confirmation',
-      'Bearish': 'Rejection at key resistance with bearish divergence forming',
-      'Neutral': 'Consolidation phase with mixed signals, awaiting breakout direction'
-    };
-
-    const catalysts = [
-      'Whale accumulation detected in last 6 hours',
-      'Options flow showing institutional positioning',
-      'Social sentiment shift via on-chain metrics',
-      'Technical breakout from consolidation pattern',
-      'Volume spike indicating smart money movement',
-      'Funding rate normalization suggesting trend continuation'
-    ];
-
-    const chartBehaviors = [
-      'Bullish flag formation with volume confirmation',
-      'Support/resistance flip at key psychological level',
-      'Higher lows pattern indicating accumulation phase',
-      'Breakout from descending wedge pattern',
-      'Rejection at previous high with retest potential',
-      'Consolidation near key Fibonacci retracement level'
-    ];
-
-    const supportingSignals = [
-      'RSI showing oversold bounce potential, funding rates neutral',
-      'Options flow showing bullish positioning, OI increasing',
-      'Volume profile suggests strong support at current levels',
-      'MACD showing bullish crossover with momentum building',
-      'On-chain metrics indicate accumulation by long-term holders',
-      'Derivatives data showing reduced selling pressure'
-    ];
-
-    const wildcardFactors = [
-      'Fear & Greed index at extreme levels, contrarian opportunity',
-      'Market sentiment and macro factors provide additional context',
-      'Correlation with traditional markets breaking down',
-      'Regulatory clarity providing positive backdrop',
-      'Institutional adoption narrative gaining momentum',
-      'Technical structure aligning with fundamental outlook'
-    ];
-
-    const randomCatalyst = catalysts[Math.floor(Math.random() * catalysts.length)];
-    const randomChartBehavior = chartBehaviors[Math.floor(Math.random() * chartBehaviors.length)];
-    const randomSupportingSignal = supportingSignals[Math.floor(Math.random() * supportingSignals.length)];
-    const randomWildcard = wildcardFactors[Math.floor(Math.random() * wildcardFactors.length)];
-
-    return `🧠 Signal — ${currentDate}
-📈 Asset: ${mentionedAsset}
-💰 Current Price: ${mockPrices[mentionedAsset] || '$42,850'}
-
-• 💡 View: ${randomView} → ${viewReasons[randomView as keyof typeof viewReasons]}
-• 🎯 Entry Zone: ${mockEntryZones[mentionedAsset] || '$42,800 to $43,200'}
-• 💰 Take Profits: ${mockTakeProfits[mentionedAsset] || 'TP1 $45,500 → TP2 $47,200 → TP3 $49,000'}
-• 🛑 Stop Loss: ${mockStopLoss[mentionedAsset] || '$41,500 (hard exit)'}
-• 🚨 Invalidate if: ${mentionedAsset} dumps 3%, funding > +0.3%
-
-🔍 Insights:
-• What's driving this move? → ${randomCatalyst}
-• Recent chart behavior → ${randomChartBehavior}
-• Supporting/Contradicting signals → ${randomSupportingSignal}
-• Wildcard/Meta factor → ${randomWildcard}`;
-  }
-}
-
 interface ResponseCard {
   id: string;
   query: string;
@@ -244,9 +95,6 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Initialize Mock ReiCore SDK
-  const rei = new MockReiCoreSdk("mock_api_key");
 
   // Mock data with updated market data
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([
@@ -309,31 +157,35 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return sources;
   };
 
-  // System prompt for ReiCore
-  const SYSTEM_PROMPT = `
-You are a tactical crypto trading strategist. Provide fully structured trading signals:
+  // Extract sources from markdown links in content
+  const extractSourcesFromContent = (content: string): Array<{name: string, url: string}> => {
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const sources: Array<{name: string, url: string}> = [];
+    let match;
 
-🧠 Signal — [Today's Date]
-📈 Asset: [Token]
-💰 Current Price: $[LIVE PRICE]
+    while ((match = markdownLinkRegex.exec(content)) !== null) {
+      const name = match[1];
+      const url = match[2];
+      
+      // Extract domain name for cleaner display
+      try {
+        const domain = new URL(url).hostname.replace('www.', '');
+        sources.push({ name: domain, url });
+      } catch {
+        sources.push({ name, url });
+      }
+    }
 
-• 💡 View: Bullish/Bearish/Neutral → [Technical + sentiment rationale]
-• 🎯 Entry Zone: $x to $y
-• 💰 Take Profits: TP1 $x → TP2 $x → TP3 $x
-• 🛑 Stop Loss: $x (or "15m close below $x")
-• 🚨 Invalidate if: [Precise condition]
+    // Remove duplicates
+    const uniqueSources = sources.filter((source, index, self) => 
+      index === self.findIndex(s => s.url === source.url)
+    );
 
-🔍 Insights:
-• What's driving this move? → [MANDATORY: Provide specific catalyst or driver]
-• Recent chart behavior → [MANDATORY: Describe recent price action and patterns]
-• Supporting or contradicting signals → [MANDATORY: Technical indicators, volume, sentiment analysis]
-• Wildcard/Meta factor → [MANDATORY: Market psychology, fear/greed, macro context]
+    return uniqueSources;
+  };
 
-ALL FIELDS ARE MANDATORY. No blanks or vague language.
-`;
-
-  // Updated API call function using Mock ReiCore SDK
-  const callReiCoreAPI = async (userQuery: string): Promise<ResponseCard> => {
+  // Updated API call function with current price requirement
+  const callOpenRouterAPI = async (userQuery: string): Promise<ResponseCard> => {
     try {
       const currentDate = new Date();
       const formattedDate = currentDate.toLocaleDateString('en-US', { 
@@ -343,19 +195,85 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
         day: 'numeric' 
       });
 
-      const response = await rei.chat.completion({
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT.trim() },
-          { role: "user", content: `Today is ${formattedDate}\n\n${userQuery}` }
-        ],
-        tools: []
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer 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`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'Traxor Intelligence Terminal',
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-4.1:online',
+          temperature: 0.7,
+          top_p: 1.0,
+          frequency_penalty: 0,
+          presence_penalty: 0,
+          plugins: [
+            {
+              id: 'web',
+              max_results: 10,
+              search_prompt: `A web search was conducted on ${formattedDate}. Incorporate the following real-time crypto market results into your analysis. IMPORTANT: Prioritize sources such as tronweekly.com, beincrypto.com, coindesk.com, cryptotimes.io, thecoinrepublic.com, fxleaders.com, bitget.com, cryptobriefing.com, cryptopotato.com, cryptoslate.com, and lookonchain.com. Cite each source using markdown with the domain name.`
+            }
+          ],
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a tactical crypto trading strategist with access to live web data. Your job is to generate clear, structured, and actionable trade setups — not summaries or vague outlooks. Every signal must include a specific directional view (bullish, bearish, or neutral) backed by real-time technical analysis (e.g., support/resistance, trendlines, RSI, MACD), on-chain metrics (exchange inflows/outflows'
+            },
+            {
+              role: 'user',
+              content: `Today is ${formattedDate}.
+
+Give me a tactical trading signal for the following query:
+
+"${userQuery}"
+
+Use live web data, recent headlines, exchange flow, sentiment, and chart-based logic.
+
+🧠 Output in this exact format:
+
+🧠 Signal — ${formattedDate}
+
+📈 Asset: [Token or asset being discussed]
+
+💰 Current Price: $[CURRENT LIVE PRICE] → [Include the actual current price from your web search]
+
+Important - These 5 points must be filled in with each response. 
+• 💡 View: Bullish/Bearish/Neutral → [Concise directional bias with technical and sentiment justification. Be specific.]
+• 🎯 Entry Zone: $___ to $___ → [Key support or structure area to enter.]
+• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE TAKE PROFITS ARE MANDATORY - provide specific price levels]
+• 🛑 Stop Loss: $___ (or "15m close below $___") → [Tight, structure-based SL.]
+• 🚨 Invalidate if: [Macro, BTC/ETH rejection, funding flip, major volume shift — be precise.]
+
+🔍 Insights:
+• What's driving this move? → [MANDATORY: Provide specific catalyst or driver]
+• Recent chart behavior → [MANDATORY: Describe recent price action and patterns]
+• Supporting or contradicting signals → [MANDATORY: Technical indicators, volume, sentiment analysis]
+• Wildcard/Meta factor → [MANDATORY: Market psychology, fear/greed, macro context]
+
+IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, actionable information. Do not leave any field empty or with placeholder text.`
+            }
+          ]
+        })
       });
 
-      let content = response.choices[0].message.content;
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status}`);
+      }
 
-      // Get rotating sources for this response
-      const sourcesWithLinks = getRotatingSources(3);
-      setSourceIndex(prev => (prev + 3) % cryptoSources.length);
+      const data = await response.json();
+      let content = data.choices[0].message.content;
+
+      // Extract sources from markdown links before removing formatting
+      let sourcesWithLinks = extractSourcesFromContent(content);
+      
+      // If no sources found in content, use rotating sources
+      if (sourcesWithLinks.length === 0) {
+        sourcesWithLinks = getRotatingSources(3);
+        // Increment source index for next call
+        setSourceIndex(prev => (prev + 3) % cryptoSources.length);
+      }
 
       // Remove ** formatting from content
       content = content.replace(/\*\*(.*?)\*\*/g, '$1');
@@ -485,7 +403,7 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
         query: userQuery,
         headline: headline || `Crypto Signal — ${formattedDate}`,
         bullets: allBullets,
-        sentiment: 'ReiCore Engine',
+        sentiment: 'Traxor Engine',
         sources: sourcesWithLinks.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
@@ -502,7 +420,7 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
       };
 
     } catch (error) {
-      console.error('ReiCore API call failed:', error);
+      console.error('API call failed:', error);
       
       // Fallback to mock response with rotating sources
       const fallbackSources = getRotatingSources(3);
@@ -524,7 +442,7 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
           'Supporting/Contradicting signals → Options flow showing bullish positioning',
           'Wildcard/Meta → Fear & Greed index showing extreme fear, contrarian signal'
         ],
-        sentiment: 'ReiCore Engine',
+        sentiment: 'Traxor Engine',
         sources: fallbackSources.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
@@ -542,7 +460,7 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
     setSidebarOpen(false); // Close sidebar on mobile when submitting
     
     try {
-      const newResponse = await callReiCoreAPI(query);
+      const newResponse = await callOpenRouterAPI(query);
       setResponses(prev => [newResponse, ...prev]);
       setQuery('');
       
@@ -597,7 +515,7 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
               <div className="bg-[#1D1E22]/80 border border-[#FF7744]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-pulse backdrop-blur-md shadow-2xl">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-3 h-3 bg-[#FF7744] rounded-full animate-ping" />
-                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">ReiCore Engine processing...</span>
+                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">Traxor Engine processing with live web data...</span>
                 </div>
                 <div className="space-y-3">
                   <div className="h-3 sm:h-4 bg-[#2A2B32]/50 rounded w-3/4 animate-pulse" />
@@ -697,10 +615,10 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
                   <Brain className="w-8 sm:w-10 h-8 sm:h-10 text-[#121212]" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-                  ReiCore Signal Engine Active
+                  Traxor Signal Engine Active
                 </h3>
                 <p className="text-gray-400 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base px-4">
-                  Ask about any crypto asset for live trading signals with ReiCore AI synthesis.
+                  Ask about any crypto asset for live trading signals with real-time web data synthesis.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto px-4">
                   {['BTC setup', 'ETH momentum', 'SOL breakout', 'HYPE signals'].map((suggestion, index) => (
@@ -871,10 +789,10 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">AI Model:</span>
-                    <span className="text-green-400 font-medium text-sm sm:text-base">ReiCore Engine</span>
+                    <span className="text-green-400 font-medium text-sm sm:text-base">GPT-4.1 Online</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-400 text-sm sm:text-base">Signal Engine:</span>
+                    <span className="text-gray-400 text-sm sm:text-base">Web Search:</span>
                     <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
                       <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>Active</span>
@@ -990,7 +908,7 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
               <TerminalIcon className="w-5 h-5 sm:w-6 sm:h-6 text-[#121212]" />
             </div>
             <div>
-              <h1 className="font-bold text-lg sm:text-xl text-white">ReiCore Signal Engine</h1>
+              <h1 className="font-bold text-lg sm:text-xl text-white">Traxor Signal Engine</h1>
               <p className="text-xs text-gray-400">Engine v3.2.1</p>
             </div>
           </div>
@@ -1030,7 +948,7 @@ ALL FIELDS ARE MANDATORY. No blanks or vague language.
         <div className="p-3 sm:p-4 border-t border-[#2A2B32]">
           <div className="flex items-center space-x-2 text-xs text-gray-400">
             <div className="w-2 h-2 bg-[#FF7744] rounded-full animate-pulse"></div>
-            <span>ReiCore Signal Engine Active</span>
+            <span>Traxor Signal Engine Active</span>
           </div>
         </div>
       </div>
