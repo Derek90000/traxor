@@ -476,7 +476,7 @@ const mockTradingSignal = {
 };
 
 // Determine if we should use mock data
-let USE_MOCKS = !REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here';
+let USE_MOCKS = !REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here' || REI_API_BASE_URL === 'https://api.reisearch.box';
 
 // Test API connection with multiple endpoints
 const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: string; error?: string }> => {
@@ -523,11 +523,15 @@ export const checkApiVersion = async () => {
 export const reiService = {
   // Test API connection and set mock mode accordingly
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
-    if (!REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here') {
+    // Check if we're using placeholder/invalid API configuration
+    if (!REI_API_KEY || 
+        REI_API_KEY === 'your_rei_api_key_here' || 
+        !REI_API_BASE_URL || 
+        REI_API_BASE_URL === 'https://api.reisearch.box') {
       USE_MOCKS = true;
       return {
         success: false,
-        message: 'No valid API key provided, using mock data',
+        message: 'No valid API configuration provided, using mock data',
         usingMocks: true
       };
     }
