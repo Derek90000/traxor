@@ -31,8 +31,8 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     const { endpoint, userToken, ...requestData } = body;
 
-    // HARDCODED SECRET KEY FOR TESTING - Replace with your actual key
-    const HARDCODED_SECRET = 'your_secret_key_here'; // Replace this with your actual secret key
+    // HARDCODED SECRET KEY FOR TESTING - Your actual key
+    const HARDCODED_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a'; // Your actual secret key
     
     // Use userToken if provided, otherwise use hardcoded secret
     const authToken = userToken || HARDCODED_SECRET;
