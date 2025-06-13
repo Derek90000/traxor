@@ -259,6 +259,11 @@ const isValidSecretKey = (key: string): boolean => {
   return key && key.startsWith('rei_sk_') && key.length > 20;
 };
 
+// Check if we have a public key (starts with pk_rei_)
+const isPublicKey = (key: string): boolean => {
+  return key && key.startsWith('pk_rei_');
+};
+
 // Determine if we should use mock data
 let USE_MOCKS = !REI_API_KEY || !isValidSecretKey(REI_API_KEY);
 
@@ -313,7 +318,7 @@ export const reiService = {
     }
 
     // Check if we have a public key instead of secret key
-    if (REI_API_KEY.startsWith('pk_rei_')) {
+    if (isPublicKey(REI_API_KEY)) {
       USE_MOCKS = true;
       return {
         success: false,
