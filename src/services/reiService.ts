@@ -254,9 +254,26 @@ const mockMarketData = {
   }
 };
 
-// Check if we have a valid secret key (starts with rei_sk_)
+// Updated validation functions to accept your key format
 const isValidSecretKey = (key: string): boolean => {
-  return key && key.startsWith('rei_sk_') && key.length > 20;
+  if (!key) return false;
+  
+  // Accept keys that start with rei_sk_ (standard format)
+  if (key.startsWith('rei_sk_') && key.length > 20) {
+    return true;
+  }
+  
+  // Accept hex keys (your format) - 64 character hex string
+  if (/^[a-f0-9]{64}$/i.test(key)) {
+    return true;
+  }
+  
+  // Accept other long alphanumeric keys (fallback)
+  if (key.length >= 32 && /^[a-zA-Z0-9]+$/.test(key)) {
+    return true;
+  }
+  
+  return false;
 };
 
 // Check if we have a public key (starts with pk_rei_)
@@ -292,7 +309,7 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
     if (error.response?.status === 401 || error.response?.status === 403) {
       return {
         connected: false,
-        error: 'Authorization failed - invalid or missing secret key (rei_sk_...)'
+        error: 'Authorization failed - invalid or missing secret key'
       };
     }
     
@@ -322,7 +339,7 @@ export const reiService = {
       USE_MOCKS = true;
       return {
         success: false,
-        message: 'Public key detected - REI API requires secret key (rei_sk_...), using mock data',
+        message: 'Public key detected - REI API requires secret key, using mock data',
         usingMocks: true
       };
     }
@@ -332,11 +349,13 @@ export const reiService = {
       USE_MOCKS = true;
       return {
         success: false,
-        message: 'Invalid API key format - expected rei_sk_..., using mock data',
+        message: `Invalid API key format (length: ${REI_API_KEY.length}), using mock data`,
         usingMocks: true
       };
     }
 
+    console.log(`✅ Valid REI API key detected (${REI_API_KEY.length} chars)`);
+    
     const connectionTest = await testApiConnection();
     USE_MOCKS = !connectionTest.connected;
 
