@@ -31,8 +31,8 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     const { endpoint, userToken, ...requestData } = body;
 
-    // HARDCODED SECRET KEY FOR TESTING - Your actual key
-    const HARDCODED_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a'; // Your actual secret key
+    // HARDCODED SECRET KEY FOR TESTING - Replace with your actual key
+    const HARDCODED_SECRET = 'your_secret_key_here'; // Replace with your actual secret key
     
     // Use userToken if provided, otherwise use hardcoded secret
     const authToken = userToken || HARDCODED_SECRET;
@@ -60,20 +60,34 @@ exports.handler = async (event, context) => {
     console.log(`Making request to: https://api.reisearch.box${endpoint}`);
     console.log(`Using auth token length: ${authToken.length}`);
 
-    // Make request to Reigent API
+    // Make request to Reigent API with better error handling
     const response = await fetch(`https://api.reisearch.box${endpoint}`, {
       method: endpoint.includes('/chat/completions') ? 'POST' : 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`
       },
-      body: endpoint.includes('/chat/completions') ? JSON.stringify(requestData) : undefined
+      body: endpoint.includes('/chat/completions') ? JSON.stringify(requestData) : undefined,
+      timeout: 30000 // 30 second timeout
     });
 
     const data = await response.json();
 
     if (!response.ok) {
       console.error('API Error:', response.status, data);
+      
+      // Handle specific error cases
+      if (response.status === 401 || response.status === 403) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({
+            error: 'Authentication failed',
+            message: 'Invalid or expired API key',
+            usingMocks: true
+          })
+        };
+      }
     } else {
       console.log('✅ Successful API response:', response.status);
     }
@@ -85,12 +99,26 @@ exports.handler = async (event, context) => {
     };
   } catch (error) {
     console.error('Netlify function error:', error);
+    
+    // Handle specific error types
+    let errorMessage = error.message;
+    let statusCode = 500;
+    
+    if (error.code === 'ECONNRESET' || error.message.includes('socket hang up')) {
+      errorMessage = 'Connection terminated by server - likely invalid API key';
+      statusCode = 401;
+    } else if (error.code === 'ETIMEDOUT') {
+      errorMessage = 'Request timeout - API server not responding';
+      statusCode = 408;
+    }
+    
     return {
-      statusCode: 500,
+      statusCode: statusCode,
       headers,
       body: JSON.stringify({ 
-        error: error.message,
-        details: 'Check Netlify function logs for more information'
+        error: errorMessage,
+        details: 'Check Netlify function logs for more information',
+        usingMocks: true
       })
     };
   }

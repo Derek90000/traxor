@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
 // HARDCODED KEYS FOR TESTING - Replace with your actual keys
-const REIGENT_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a'; // Your actual secret key
+const REIGENT_SECRET = 'your_secret_key_here'; // Replace with your actual secret key
 const REIGENT_PUBLIC = 'your_public_key_here'; // Replace with your actual public key (if needed)
 const REIGENT_BASE_URL = 'https://api.reisearch.box';
 
@@ -52,7 +52,7 @@ const addInterceptors = (client: AxiosInstance) => {
         params: request.params,
         headers: {
           ...request.headers,
-          Authorization: `Bearer ${REIGENT_SECRET.substring(0, 8)}...` // Show first 8 chars for debugging
+          Authorization: REIGENT_SECRET !== 'your_secret_key_here' ? `Bearer ${REIGENT_SECRET.substring(0, 8)}...` : 'Bearer [placeholder]'
         }
       });
     }
@@ -205,7 +205,7 @@ const getClient = () => {
   }
 };
 
-// Test API connection
+// Test API connection with better error handling
 const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: string; error?: string }> => {
   const client = getClient();
   
@@ -242,6 +242,14 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
     }
   } catch (error: any) {
     console.log(`❌ Failed to connect to Reigent API: ${error.message}`);
+    
+    // Check for socket hang up error specifically
+    if (error.message.includes('socket hang up') || error.code === 'ECONNRESET') {
+      return { 
+        connected: false, 
+        error: 'Connection terminated by server - likely invalid API key' 
+      };
+    }
     
     // Check if it's a CORS error
     if (error.message.includes('Network Error') && !import.meta.env.DEV) {
@@ -374,14 +382,14 @@ export const reigentService = {
         const response = await client.get(`${basePath}/v1/agents`);
         return response.data;
       }
-    } catch (error) {
-      console.warn('Failed to get agent, falling back to mock data');
+    } catch (error: any) {
+      console.warn('Failed to get agent, falling back to mock data:', error.message);
       USE_MOCKS = true;
       return reigentService.getAgent();
     }
   },
 
-  // Chat completion
+  // Chat completion with better error handling
   chatCompletion: async (request: ChatCompletionRequest): Promise<ChatCompletionResponse> => {
     if (USE_MOCKS) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -494,8 +502,8 @@ Based on your query about "${lastMessage.content}", here's the current market as
         const response = await client.post(`${basePath}/v1/chat/completions`, request);
         return response.data;
       }
-    } catch (error) {
-      console.warn('Failed to chat with agent, falling back to mock data');
+    } catch (error: any) {
+      console.warn('Failed to chat with agent, falling back to mock data:', error.message);
       USE_MOCKS = true;
       return reigentService.chatCompletion(request);
     }
@@ -531,8 +539,8 @@ Based on your query about "${lastMessage.content}", here's the current market as
         });
         return response.data;
       }
-    } catch (error) {
-      console.warn('Failed to create agent, falling back to mock data');
+    } catch (error: any) {
+      console.warn('Failed to create agent, falling back to mock data:', error.message);
       USE_MOCKS = true;
       return reigentService.createAgent(request, userSecretToken);
     }
