@@ -14,7 +14,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/rei/, ''),
         headers: {
-          'Authorization': `Bearer ${process.env.VITE_REI_API_KEY}`
+          'Authorization': `Bearer ${process.env.VITE_REI_API_KEY || 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a'}`
         }
       }
     }
