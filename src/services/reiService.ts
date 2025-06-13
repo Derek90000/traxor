@@ -17,7 +17,7 @@ const reiApiClient = axios.create({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REI_API_KEY}`
   },
-  timeout: 30000 // Increased from 15000 to 30000ms (30 seconds)
+  timeout: 120000 // 120 seconds (2 minutes) maximum timeout
 });
 
 // Create a separate client for development proxy
@@ -27,7 +27,7 @@ const devApiClient = axios.create({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REI_API_KEY}`
   },
-  timeout: 30000 // Increased from 15000 to 30000ms (30 seconds)
+  timeout: 120000 // 120 seconds (2 minutes) maximum timeout
 });
 
 // Debug interceptors
@@ -291,7 +291,7 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
   
   try {
     console.log(`Testing REI API connection to: ${basePath}/v1/agents`);
-    const response = await client.get(`${basePath}/v1/agents`, { timeout: 10000 }); // Increased from 5000 to 10000ms
+    const response = await client.get(`${basePath}/v1/agents`, { timeout: 30000 }); // 30 seconds for connection test
     console.log(`✅ Successfully connected to REI API`);
     return { connected: true, endpoint: '/v1/agents' };
   } catch (error: any) {
