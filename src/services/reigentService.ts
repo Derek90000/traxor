@@ -210,37 +210,43 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
   
   try {
     let testEndpoint = '';
-    let testData = {};
     
     if (import.meta.env.PROD) {
       // Test Netlify Function
       testEndpoint = '/reigent-proxy';
-      testData = {
-        endpoint: '/v1/agents',
-        messages: [{ role: 'user', content: 'test' }]
-      };
       console.log(`Testing Netlify Function: ${testEndpoint}`);
+      
+      const response = await client.post(testEndpoint, {
+        endpoint: '/v1/agents'
+      }, { timeout: 30000 });
+      
+      console.log(`✅ Successfully connected via Netlify Function`);
+      return { connected: true, endpoint: testEndpoint };
     } else if (import.meta.env.DEV) {
       // Test development proxy
       testEndpoint = '/reigent/v1/agents';
       console.log(`Testing development proxy: ${testEndpoint}`);
+      
+      const response = await client.get(testEndpoint, { timeout: 30000 });
+      console.log(`✅ Successfully connected via development proxy`);
+      return { connected: true, endpoint: testEndpoint };
     } else {
       // Test direct API
       testEndpoint = '/v1/agents';
       console.log(`Testing direct API: ${testEndpoint}`);
+      
+      const response = await client.get(testEndpoint, { timeout: 30000 });
+      console.log(`✅ Successfully connected to direct API`);
+      return { connected: true, endpoint: testEndpoint };
     }
-    
-    const response = await client.get(testEndpoint, { timeout: 30000 });
-    console.log(`✅ Successfully connected to Reigent API`);
-    return { connected: true, endpoint: testEndpoint };
   } catch (error: any) {
     console.log(`❌ Failed to connect to Reigent API: ${error.message}`);
     
     // Check if it's a CORS error
-    if (error.message.includes('Network Error') && import.meta.env.PROD) {
+    if (error.message.includes('Network Error') && !import.meta.env.DEV) {
       return { 
         connected: false, 
-        error: 'CORS error - using Netlify Functions to proxy requests' 
+        error: 'CORS error - check Netlify Functions configuration' 
       };
     }
     
@@ -249,6 +255,14 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
       return {
         connected: false,
         error: 'Authorization failed - invalid or missing secret key'
+      };
+    }
+    
+    // Check if it's a 404 error (function not found)
+    if (error.response?.status === 404) {
+      return {
+        connected: false,
+        error: 'Netlify Function not found - check deployment configuration'
       };
     }
     

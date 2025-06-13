@@ -1,41 +1,75 @@
-export default async (request, context) => {
+const fetch = require('node-fetch');
+
+exports.handler = async (event, context) => {
+  // Set CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+
+  // Handle preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
   // Only allow POST requests
-  if (request.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
   }
 
   try {
-    const body = await request.json();
-    const { endpoint, ...requestData } = body;
+    const body = JSON.parse(event.body);
+    const { endpoint, userToken, ...requestData } = body;
+
+    // Use the secret from environment variables
+    const authToken = userToken || process.env.REIGENT_SECRET;
+    
+    if (!authToken) {
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ error: 'No authentication token available' })
+      };
+    }
+
+    console.log(`Making request to: https://api.reisearch.box${endpoint}`);
 
     // Make request to Reigent API
     const response = await fetch(`https://api.reisearch.box${endpoint}`, {
-      method: 'POST',
+      method: endpoint.includes('/chat/completions') ? 'POST' : 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Netlify.env.get('REIGENT_SECRET')}`
+        'Authorization': `Bearer ${authToken}`
       },
-      body: JSON.stringify(requestData)
+      body: endpoint.includes('/chat/completions') ? JSON.stringify(requestData) : undefined
     });
 
     const data = await response.json();
 
-    return new Response(JSON.stringify(data), {
-      status: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      }
-    });
+    return {
+      statusCode: response.status,
+      headers,
+      body: JSON.stringify(data)
+    };
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
+    console.error('Netlify function error:', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ 
+        error: error.message,
+        details: 'Check Netlify function logs for more information'
+      })
+    };
   }
 };
