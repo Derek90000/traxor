@@ -263,10 +263,10 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
   const basePath = import.meta.env.DEV ? '/rei' : '';
   
   try {
-    console.log(`Testing REI API connection to: ${basePath}/rei/agents`);
-    const response = await client.get(`${basePath}/rei/agents`, { timeout: 5000 });
+    console.log(`Testing REI API connection to: ${basePath}/v1/agents`);
+    const response = await client.get(`${basePath}/v1/agents`, { timeout: 5000 });
     console.log(`✅ Successfully connected to REI API`);
-    return { connected: true, endpoint: '/rei/agents' };
+    return { connected: true, endpoint: '/v1/agents' };
   } catch (error: any) {
     console.log(`❌ Failed to connect to REI API: ${error.message}`);
     
@@ -342,7 +342,7 @@ export const reiService = {
     try {
       const client = import.meta.env.DEV ? devApiClient : reiApiClient;
       const basePath = import.meta.env.DEV ? '/rei' : '';
-      const response = await client.get(`${basePath}/rei/agents`);
+      const response = await client.get(`${basePath}/v1/agents`);
       return response.data;
     } catch (error) {
       console.warn('Failed to list agents, falling back to mock data');
@@ -451,7 +451,7 @@ Based on your query about "${lastMessage.content}", here's the current market as
     try {
       const client = import.meta.env.DEV ? devApiClient : reiApiClient;
       const basePath = import.meta.env.DEV ? '/rei' : '';
-      const response = await client.post(`${basePath}/rei/agents/chat-completion`, request);
+      const response = await client.post(`${basePath}/v1/chat/completions`, request);
       return response.data;
     } catch (error) {
       console.warn('Failed to chat with agent, falling back to mock data');
@@ -474,7 +474,7 @@ Based on your query about "${lastMessage.content}", here's the current market as
         return {
           success: false,
           message: result.error || 'Connection failed',
-          details: { baseUrl: REI_API_BASE_URL, endpoint: '/rei/agents' }
+          details: { baseUrl: REI_API_BASE_URL, endpoint: '/v1/agents' }
         };
       }
     } catch (error: any) {
