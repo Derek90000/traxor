@@ -2,7 +2,6 @@ import axios, { AxiosInstance } from 'axios';
 
 // Environment variables
 const REIGENT_SECRET = import.meta.env.VITE_REIGENT_SECRET || '';
-const REIGENT_API_KEY = import.meta.env.VITE_REIGENT_API_KEY || '';
 const REIGENT_BASE_URL = import.meta.env.VITE_REIGENT_BASE_URL || 'https://api.reisearch.box';
 
 // Debug mode for troubleshooting
@@ -31,6 +30,15 @@ const devApiClient = axios.create({
     'Authorization': `Bearer ${REIGENT_SECRET}`
   },
   timeout: 120000 // 120 seconds maximum timeout
+});
+
+// Production client using Netlify Functions
+const prodApiClient = axios.create({
+  baseURL: '/.netlify/functions',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  timeout: 120000
 });
 
 // Debug interceptors
@@ -75,9 +83,10 @@ const addInterceptors = (client: AxiosInstance) => {
   );
 };
 
-// Add interceptors to both clients
+// Add interceptors to all clients
 addInterceptors(reigentApiClient);
 addInterceptors(devApiClient);
+addInterceptors(prodApiClient);
 
 // Define types for Reigent API responses
 export interface ReigentAgent {
@@ -184,33 +193,54 @@ const isPublicKey = (key: string): boolean => {
 // Determine if we should use mock data
 let USE_MOCKS = !REIGENT_SECRET || !isValidSecretKey(REIGENT_SECRET);
 
+// Get the appropriate client based on environment
+const getClient = () => {
+  if (import.meta.env.PROD) {
+    return prodApiClient; // Use Netlify Functions in production
+  } else if (import.meta.env.DEV) {
+    return devApiClient; // Use proxy in development
+  } else {
+    return reigentApiClient; // Direct API calls (fallback)
+  }
+};
+
 // Test API connection
 const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: string; error?: string }> => {
-  // In production, always use mock data due to CORS restrictions
-  if (import.meta.env.PROD) {
-    console.log('🌐 Production environment detected - using mock data due to CORS restrictions');
-    return { 
-      connected: false, 
-      error: 'Production deployment uses mock data due to CORS restrictions' 
-    };
-  }
-
-  const client = import.meta.env.DEV ? devApiClient : reigentApiClient;
-  const basePath = import.meta.env.DEV ? '/reigent' : '';
+  const client = getClient();
   
   try {
-    console.log(`Testing Reigent API connection to: ${basePath}/v1/agents`);
-    const response = await client.get(`${basePath}/v1/agents`, { timeout: 30000 });
+    let testEndpoint = '';
+    let testData = {};
+    
+    if (import.meta.env.PROD) {
+      // Test Netlify Function
+      testEndpoint = '/reigent-proxy';
+      testData = {
+        endpoint: '/v1/agents',
+        messages: [{ role: 'user', content: 'test' }]
+      };
+      console.log(`Testing Netlify Function: ${testEndpoint}`);
+    } else if (import.meta.env.DEV) {
+      // Test development proxy
+      testEndpoint = '/reigent/v1/agents';
+      console.log(`Testing development proxy: ${testEndpoint}`);
+    } else {
+      // Test direct API
+      testEndpoint = '/v1/agents';
+      console.log(`Testing direct API: ${testEndpoint}`);
+    }
+    
+    const response = await client.get(testEndpoint, { timeout: 30000 });
     console.log(`✅ Successfully connected to Reigent API`);
-    return { connected: true, endpoint: '/v1/agents' };
+    return { connected: true, endpoint: testEndpoint };
   } catch (error: any) {
     console.log(`❌ Failed to connect to Reigent API: ${error.message}`);
     
     // Check if it's a CORS error
-    if (error.message.includes('Network Error') && !import.meta.env.DEV) {
+    if (error.message.includes('Network Error') && import.meta.env.PROD) {
       return { 
         connected: false, 
-        error: 'CORS error - API needs to allow cross-origin requests or use a proxy' 
+        error: 'CORS error - using Netlify Functions to proxy requests' 
       };
     }
     
@@ -233,16 +263,6 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
 export const reigentService = {
   // Test API connection and set mock mode accordingly
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
-    // In production, always use mock data due to CORS
-    if (import.meta.env.PROD) {
-      USE_MOCKS = true;
-      return {
-        success: false,
-        message: 'Production deployment - using mock data (CORS restrictions prevent direct API access)',
-        usingMocks: true
-      };
-    }
-
     // Check if we're using placeholder/invalid API configuration
     if (!REIGENT_SECRET) {
       USE_MOCKS = true;
@@ -281,7 +301,7 @@ export const reigentService = {
     if (connectionTest.connected) {
       return {
         success: true,
-        message: `Connected to Reigent API at ${connectionTest.endpoint}`,
+        message: `Connected to Reigent API via ${import.meta.env.PROD ? 'Netlify Functions' : 'development proxy'}`,
         usingMocks: false
       };
     } else {
@@ -315,10 +335,20 @@ export const reigentService = {
     }
 
     try {
-      const client = import.meta.env.DEV ? devApiClient : reigentApiClient;
-      const basePath = import.meta.env.DEV ? '/reigent' : '';
-      const response = await client.get(`${basePath}/v1/agents`);
-      return response.data;
+      const client = getClient();
+      
+      if (import.meta.env.PROD) {
+        // Use Netlify Function
+        const response = await client.post('/reigent-proxy', {
+          endpoint: '/v1/agents'
+        });
+        return response.data;
+      } else {
+        // Use proxy or direct API
+        const basePath = import.meta.env.DEV ? '/reigent' : '';
+        const response = await client.get(`${basePath}/v1/agents`);
+        return response.data;
+      }
     } catch (error) {
       console.warn('Failed to get agent, falling back to mock data');
       USE_MOCKS = true;
@@ -424,10 +454,21 @@ Based on your query about "${lastMessage.content}", here's the current market as
     }
 
     try {
-      const client = import.meta.env.DEV ? devApiClient : reigentApiClient;
-      const basePath = import.meta.env.DEV ? '/reigent' : '';
-      const response = await client.post(`${basePath}/v1/chat/completions`, request);
-      return response.data;
+      const client = getClient();
+      
+      if (import.meta.env.PROD) {
+        // Use Netlify Function
+        const response = await client.post('/reigent-proxy', {
+          endpoint: '/v1/chat/completions',
+          ...request
+        });
+        return response.data;
+      } else {
+        // Use proxy or direct API
+        const basePath = import.meta.env.DEV ? '/reigent' : '';
+        const response = await client.post(`${basePath}/v1/chat/completions`, request);
+        return response.data;
+      }
     } catch (error) {
       console.warn('Failed to chat with agent, falling back to mock data');
       USE_MOCKS = true;
@@ -445,14 +486,26 @@ Based on your query about "${lastMessage.content}", here's the current market as
     }
 
     try {
-      const client = import.meta.env.DEV ? devApiClient : reigentApiClient;
-      const basePath = import.meta.env.DEV ? '/reigent' : '';
-      const response = await client.post(`${basePath}/v1/accounts/units`, request, {
-        headers: {
-          'Authorization': `Bearer ${userSecretToken}`
-        }
-      });
-      return response.data;
+      const client = getClient();
+      
+      if (import.meta.env.PROD) {
+        // Use Netlify Function with user token
+        const response = await client.post('/reigent-proxy', {
+          endpoint: '/v1/accounts/units',
+          userToken: userSecretToken,
+          ...request
+        });
+        return response.data;
+      } else {
+        // Use proxy or direct API
+        const basePath = import.meta.env.DEV ? '/reigent' : '';
+        const response = await client.post(`${basePath}/v1/accounts/units`, request, {
+          headers: {
+            'Authorization': `Bearer ${userSecretToken}`
+          }
+        });
+        return response.data;
+      }
     } catch (error) {
       console.warn('Failed to create agent, falling back to mock data');
       USE_MOCKS = true;
