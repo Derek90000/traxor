@@ -824,5 +824,4 @@ export const reiService = {
   }
 };
 
-export { enableDebugMode };
 export default reiService;
