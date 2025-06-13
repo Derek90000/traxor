@@ -31,24 +31,28 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     const { endpoint, userToken, ...requestData } = body;
 
-    // Use the correct environment variable name that matches Netlify configuration
-    const authToken = userToken || process.env.VITE_REIGENT_SECRET;
+    // HARDCODED SECRET KEY FOR TESTING - Replace with your actual key
+    const HARDCODED_SECRET = 'your_secret_key_here'; // Replace this with your actual secret key
     
-    console.log('Environment variables check:', {
-      hasViteReigentSecret: !!process.env.VITE_REIGENT_SECRET,
-      hasReigentSecret: !!process.env.REIGENT_SECRET,
+    // Use userToken if provided, otherwise use hardcoded secret
+    const authToken = userToken || HARDCODED_SECRET;
+    
+    console.log('Netlify Function - Key check:', {
+      hasUserToken: !!userToken,
+      hasHardcodedSecret: !!HARDCODED_SECRET && HARDCODED_SECRET !== 'your_secret_key_here',
       tokenLength: authToken ? authToken.length : 0,
+      tokenPreview: authToken && authToken !== 'your_secret_key_here' ? `${authToken.substring(0, 8)}...` : 'placeholder',
       endpoint: endpoint
     });
     
-    if (!authToken) {
-      console.error('No authentication token found. Available env vars:', Object.keys(process.env).filter(key => key.includes('REI') || key.includes('REIGENT')));
+    if (!authToken || authToken === 'your_secret_key_here') {
+      console.error('No valid authentication token found. Please replace the hardcoded secret key.');
       return {
         statusCode: 401,
         headers,
         body: JSON.stringify({ 
           error: 'No authentication token available',
-          debug: 'Check VITE_REIGENT_SECRET environment variable in Netlify'
+          debug: 'Please replace "your_secret_key_here" with your actual Reigent secret key in the Netlify function'
         })
       };
     }
@@ -70,6 +74,8 @@ exports.handler = async (event, context) => {
 
     if (!response.ok) {
       console.error('API Error:', response.status, data);
+    } else {
+      console.log('✅ Successful API response:', response.status);
     }
 
     return {

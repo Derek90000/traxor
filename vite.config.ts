@@ -1,18 +1,15 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
-  const env = loadEnv(mode, process.cwd(), '');
+export default defineConfig(() => {
+  // HARDCODED SECRET KEY FOR TESTING - Replace with your actual key
+  const HARDCODED_SECRET = 'your_secret_key_here'; // Replace this with your actual secret key
   
-  // Use the correct environment variable name
-  const apiKey = env.VITE_REIGENT_SECRET;
-  
-  // Only include Authorization header if API key is provided
+  // Only include Authorization header if we have a valid API key
   const proxyHeaders: Record<string, string> = {};
-  if (apiKey) {
-    proxyHeaders['Authorization'] = `Bearer ${apiKey}`;
+  if (HARDCODED_SECRET && HARDCODED_SECRET !== 'your_secret_key_here') {
+    proxyHeaders['Authorization'] = `Bearer ${HARDCODED_SECRET}`;
   }
   
   return {

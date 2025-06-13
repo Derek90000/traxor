@@ -1,11 +1,12 @@
 import axios, { AxiosInstance } from 'axios';
 
-// Environment variables - Updated to match Netlify configuration
-const REIGENT_SECRET = import.meta.env.VITE_REIGENT_SECRET || '';
-const REIGENT_BASE_URL = import.meta.env.VITE_REIGENT_BASE_URL || 'https://api.reisearch.box';
+// HARDCODED KEYS FOR TESTING - Replace with your actual keys
+const REIGENT_SECRET = 'your_secret_key_here'; // Replace with your actual secret key
+const REIGENT_PUBLIC = 'your_public_key_here'; // Replace with your actual public key (if needed)
+const REIGENT_BASE_URL = 'https://api.reisearch.box';
 
 // Debug mode for troubleshooting
-let DEBUG_MODE = false;
+let DEBUG_MODE = true; // Enabled by default for testing
 
 export const enableDebugMode = () => {
   DEBUG_MODE = true;
@@ -51,7 +52,7 @@ const addInterceptors = (client: AxiosInstance) => {
         params: request.params,
         headers: {
           ...request.headers,
-          Authorization: 'Bearer [REDACTED]' // Don't log the actual token
+          Authorization: `Bearer ${REIGENT_SECRET.substring(0, 8)}...` // Show first 8 chars for debugging
         }
       });
     }
@@ -165,7 +166,7 @@ export interface CreateAgentResponse {
 
 // Validation functions
 const isValidSecretKey = (key: string): boolean => {
-  if (!key) return false;
+  if (!key || key === 'your_secret_key_here') return false;
   
   // Accept keys that start with rei_sk_ (standard format)
   if (key.startsWith('rei_sk_') && key.length > 20) {
@@ -191,7 +192,7 @@ const isPublicKey = (key: string): boolean => {
 };
 
 // Determine if we should use mock data
-let USE_MOCKS = !REIGENT_SECRET || !isValidSecretKey(REIGENT_SECRET);
+let USE_MOCKS = !REIGENT_SECRET || REIGENT_SECRET === 'your_secret_key_here' || !isValidSecretKey(REIGENT_SECRET);
 
 // Get the appropriate client based on environment
 const getClient = () => {
@@ -277,21 +278,22 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
 export const reigentService = {
   // Test API connection and set mock mode accordingly
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
-    // Debug: Log environment variables (without exposing the actual key)
-    console.log('Environment check:', {
-      hasViteReigentSecret: !!import.meta.env.VITE_REIGENT_SECRET,
+    // Debug: Log key information (without exposing the actual key)
+    console.log('🔑 Hardcoded Key Check:', {
+      hasSecretKey: !!REIGENT_SECRET && REIGENT_SECRET !== 'your_secret_key_here',
       keyLength: REIGENT_SECRET.length,
-      keyPreview: REIGENT_SECRET ? `${REIGENT_SECRET.substring(0, 8)}...` : 'none',
+      keyPreview: REIGENT_SECRET !== 'your_secret_key_here' ? `${REIGENT_SECRET.substring(0, 8)}...` : 'placeholder',
+      isValidFormat: isValidSecretKey(REIGENT_SECRET),
       isDev: import.meta.env.DEV,
       isProd: import.meta.env.PROD
     });
 
-    // Check if we're using placeholder/invalid API configuration
-    if (!REIGENT_SECRET) {
+    // Check if we're using placeholder key
+    if (!REIGENT_SECRET || REIGENT_SECRET === 'your_secret_key_here') {
       USE_MOCKS = true;
       return {
         success: false,
-        message: 'No secret key provided, using mock data',
+        message: '⚠️ Please replace "your_secret_key_here" with your actual Reigent secret key',
         usingMocks: true
       };
     }
@@ -324,13 +326,13 @@ export const reigentService = {
     if (connectionTest.connected) {
       return {
         success: true,
-        message: `Connected to Reigent API via ${import.meta.env.PROD ? 'Netlify Functions' : 'development proxy'}`,
+        message: `🚀 Connected to Reigent API via ${import.meta.env.PROD ? 'Netlify Functions' : 'development proxy'}`,
         usingMocks: false
       };
     } else {
       return {
         success: false,
-        message: `Failed to connect to Reigent API: ${connectionTest.error}. Using mock data.`,
+        message: `❌ Failed to connect to Reigent API: ${connectionTest.error}. Using mock data.`,
         usingMocks: true
       };
     }
