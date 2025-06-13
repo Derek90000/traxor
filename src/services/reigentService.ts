@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
-// Environment variables
-const REIGENT_SECRET = import.meta.env.VITE_REIGENT_SECRET || '';
+// Environment variables - Updated to match Netlify configuration
+const REIGENT_SECRET = import.meta.env.VITE_REIGENT_SECRET || import.meta.env.VITE_REI_API_KEY || '';
 const REIGENT_BASE_URL = import.meta.env.VITE_REIGENT_BASE_URL || 'https://api.reisearch.box';
 
 // Debug mode for troubleshooting
@@ -277,6 +277,15 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
 export const reigentService = {
   // Test API connection and set mock mode accordingly
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
+    // Debug: Log environment variables (without exposing the actual key)
+    console.log('Environment check:', {
+      hasViteReigentSecret: !!import.meta.env.VITE_REIGENT_SECRET,
+      hasViteReiApiKey: !!import.meta.env.VITE_REI_API_KEY,
+      keyLength: REIGENT_SECRET.length,
+      isDev: import.meta.env.DEV,
+      isProd: import.meta.env.PROD
+    });
+
     // Check if we're using placeholder/invalid API configuration
     if (!REIGENT_SECRET) {
       USE_MOCKS = true;
