@@ -31,8 +31,15 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     const { endpoint, userToken, ...requestData } = body;
 
-    // Check for both possible environment variable names
-    const authToken = userToken || process.env.REIGENT_SECRET || process.env.VITE_REIGENT_SECRET || process.env.VITE_REI_API_KEY;
+    // Use the correct environment variable name that matches Netlify configuration
+    const authToken = userToken || process.env.VITE_REIGENT_SECRET;
+    
+    console.log('Environment variables check:', {
+      hasViteReigentSecret: !!process.env.VITE_REIGENT_SECRET,
+      hasReigentSecret: !!process.env.REIGENT_SECRET,
+      tokenLength: authToken ? authToken.length : 0,
+      endpoint: endpoint
+    });
     
     if (!authToken) {
       console.error('No authentication token found. Available env vars:', Object.keys(process.env).filter(key => key.includes('REI') || key.includes('REIGENT')));
@@ -41,7 +48,7 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({ 
           error: 'No authentication token available',
-          debug: 'Check environment variable configuration'
+          debug: 'Check VITE_REIGENT_SECRET environment variable in Netlify'
         })
       };
     }
