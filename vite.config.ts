@@ -4,13 +4,12 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
-  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Only include Authorization header if API key is provided
+  // Only include Authorization header if secret key is provided
   const proxyHeaders: Record<string, string> = {};
-  if (env.VITE_REI_API_KEY) {
-    proxyHeaders['Authorization'] = `Bearer ${env.VITE_REI_API_KEY}`;
+  if (env.VITE_REIGENT_SECRET) {
+    proxyHeaders['Authorization'] = `Bearer ${env.VITE_REIGENT_SECRET}`;
   }
   
   return {
@@ -20,10 +19,10 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        '/rei': {
+        '/reigent': {
           target: 'https://api.reisearch.box',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/rei/, ''),
+          rewrite: (path) => path.replace(/^\/reigent/, ''),
           headers: proxyHeaders
         }
       }
