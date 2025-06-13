@@ -254,8 +254,13 @@ const mockMarketData = {
   }
 };
 
+// Check if we have a valid secret key (starts with rei_sk_)
+const isValidSecretKey = (key: string): boolean => {
+  return key && key.startsWith('rei_sk_') && key.length > 20;
+};
+
 // Determine if we should use mock data
-let USE_MOCKS = !REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here';
+let USE_MOCKS = !REI_API_KEY || !isValidSecretKey(REI_API_KEY);
 
 // Test API connection using the documented endpoints
 const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: string; error?: string }> => {
@@ -278,6 +283,14 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
       };
     }
     
+    // Check if it's an authorization error
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return {
+        connected: false,
+        error: 'Authorization failed - invalid or missing secret key (rei_sk_...)'
+      };
+    }
+    
     return { 
       connected: false, 
       error: error.response?.data?.message || error.message 
@@ -290,11 +303,31 @@ export const reiService = {
   // Test API connection and set mock mode accordingly
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
     // Check if we're using placeholder/invalid API configuration
-    if (!REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here') {
+    if (!REI_API_KEY) {
       USE_MOCKS = true;
       return {
         success: false,
-        message: 'No valid API key provided, using mock data',
+        message: 'No API key provided, using mock data',
+        usingMocks: true
+      };
+    }
+
+    // Check if we have a public key instead of secret key
+    if (REI_API_KEY.startsWith('pk_rei_')) {
+      USE_MOCKS = true;
+      return {
+        success: false,
+        message: 'Public key detected - REI API requires secret key (rei_sk_...), using mock data',
+        usingMocks: true
+      };
+    }
+
+    // Check if we have a valid secret key format
+    if (!isValidSecretKey(REI_API_KEY)) {
+      USE_MOCKS = true;
+      return {
+        success: false,
+        message: 'Invalid API key format - expected rei_sk_..., using mock data',
         usingMocks: true
       };
     }
