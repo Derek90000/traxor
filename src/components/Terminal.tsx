@@ -37,9 +37,13 @@ import {
   Terminal as TerminalIcon,
   Menu,
   X,
-  ExternalLink
+  ExternalLink,
+  CheckCircle,
+  AlertTriangle,
+  XCircle
 } from 'lucide-react';
-import reiService, { type MarketData, type TradingSignal } from '../services/reiService';
+import reiService, { enableDebugMode } from '../services/reiService';
+import type { MarketData, TradingSignal } from '../services/reiService';
 
 interface ResponseCard {
   id: string;
@@ -52,7 +56,6 @@ interface ResponseCard {
   bookmarked?: boolean;
   rawContent?: string;
   asset?: string;
-  currentPrice?: string;
   view?: string;
   entryZone?: string;
   takeProfits?: string;
@@ -94,8 +97,8 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState('ask');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const [activePolling, setActivePolling] = useState<NodeJS.Timeout | null>(null);
+  const [apiStatus, setApiStatus] = useState<'unknown' | 'connected' | 'disconnected' | 'testing'>('unknown');
+  const [apiMessage, setApiMessage] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Mock data with updated market data
@@ -134,30 +137,39 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Rotating source pool as requested
-  const cryptoSources = [
-    { name: 'tronweekly.com', url: 'https://tronweekly.com' },
-    { name: 'cryptotimes.io', url: 'https://cryptotimes.io' },
-    { name: 'thecoinrepublic.com', url: 'https://thecoinrepublic.com' },
-    { name: 'beincrypto.com', url: 'https://beincrypto.com' },
-    { name: 'fxleaders.com', url: 'https://fxleaders.com' },
-    { name: 'bitget.com', url: 'https://bitget.com' },
-    { name: 'coindesk.com', url: 'https://coindesk.com' },
-    { name: 'cryptopotato.com', url: 'https://cryptopotato.com' },
-    { name: 'cryptobriefing.com', url: 'https://cryptobriefing.com' },
-    { name: 'cryptoslate.com', url: 'https://cryptoslate.com' },
-    { name: 'cointelegraph.com', url: 'https://cointelegraph.com' },
-    { name: 'lookonchain.com', url: 'https://lookonchain.com' }
-  ];
+  // Initialize REI API on component mount
+  useEffect(() => {
+    const initializeApi = async () => {
+      setApiStatus('testing');
+      try {
+        const result = await reiService.initialize();
+        setApiStatus(result.success ? 'connected' : 'disconnected');
+        setApiMessage(result.message);
+        
+        // Add initialization message to responses
+        const initMessage: ResponseCard = {
+          id: 'init-' + Date.now(),
+          query: 'System initialization',
+          headline: result.success ? '🟢 REI API Connected' : '🟡 Using Mock Data',
+          bullets: [
+            result.message,
+            result.usingMocks ? 'All trading signals will use simulated data' : 'Live market data available',
+            'Type "help" for available commands'
+          ],
+          sentiment: result.success ? 'Connected' : 'Mock Mode',
+          timestamp: new Date(),
+          sources: result.success ? ['REI Network API'] : ['Mock Data Engine']
+        };
+        
+        setResponses([initMessage]);
+      } catch (error) {
+        setApiStatus('disconnected');
+        setApiMessage('Failed to initialize API connection');
+      }
+    };
 
-  const getRotatingSources = (count: number = 3) => {
-    const sources = [];
-    for (let i = 0; i < count; i++) {
-      const index = (sourceIndex + i) % cryptoSources.length;
-      sources.push(cryptoSources[index]);
-    }
-    return sources;
-  };
+    initializeApi();
+  }, []);
 
   // Format large numbers for display
   const formatNumber = (num: number): string => {
@@ -168,7 +180,7 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   };
 
   // Format trading signal according to custom prompt format
-  const formatTradingSignal = (signal: TradingSignal, asset: string): string => {
+  const formatTradingSignal = (signal: TradingSignal, asset: string): ResponseCard => {
     const currentDate = new Date().toLocaleDateString('en-US', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -176,481 +188,239 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
       day: 'numeric' 
     });
     
-    return `🧠 Signal — ${currentDate}
+    const bullets = [
+      `💡 View: ${signal.view} → ${signal.viewReason}`,
+      `🎯 Entry Zone: $${signal.entryZone.min} to $${signal.entryZone.max}`,
+      `💰 Take Profits: TP1 $${signal.targets[0]} → TP2 $${signal.targets[1]}${signal.targets[2] ? ` → TP3 $${signal.targets[2]}` : ''}`,
+      `🛑 Stop Loss: $${signal.stopLoss.price} (${signal.stopLoss.reasoning})`,
+      `🚨 Invalidate if: ${signal.invalidation}`,
+      '',
+      '🔍 Insights:',
+      `• What's driving this move? ${signal.insights.driver}`,
+      `• Recent chart behavior: ${signal.insights.chartBehavior}`,
+      `• Supporting signals: ${signal.insights.supportingSignals.join(', ')}`,
+      signal.insights.contradictingSignals.length > 0 ? `• Contradicting signals: ${signal.insights.contradictingSignals.join(', ')}` : '',
+      signal.insights.wildcard ? `• Wildcard: ${signal.insights.wildcard}` : ''
+    ].filter(Boolean);
 
-📈 Asset: ${asset.toUpperCase()}
-
-💰 Current Price: $${signal.currentPrice} → Live REI Network data
-
-• 💡 View: ${signal.view} → ${signal.viewReason}
-• 🎯 Entry Zone: $${signal.entryZone.min} to $${signal.entryZone.max} → ${signal.entryZone.reasoning}
-• 💰 Take Profits: TP1 $${signal.targets[0]} → TP2 $${signal.targets[1]} → TP3 $${signal.targets[2]}
-• 🛑 Stop Loss: $${signal.stopLoss.price} → ${signal.stopLoss.reasoning}
-• 🚨 Invalidate if: ${signal.invalidation}
-
-🔍 Insights:
-• What's driving this move? → ${signal.insights.driver}
-• Recent chart behavior → ${signal.insights.chartBehavior}
-• Supporting or contradicting signals → ${signal.insights.supportingSignals.join(', ')}
-• Wildcard/Meta factor → ${signal.insights.wildcard || signal.insights.sentiment}`;
+    return {
+      id: Date.now().toString(),
+      query: `Trading signal for ${asset}`,
+      headline: `🧠 ${asset.toUpperCase()} Signal — ${currentDate}`,
+      bullets,
+      sentiment: signal.view,
+      sources: reiService.isUsingMocks() ? ['Mock Data Engine'] : ['REI Network API', 'Market Data Feeds'],
+      timestamp: new Date(),
+      asset: asset.toUpperCase(),
+      view: signal.view,
+      entryZone: `$${signal.entryZone.min} - $${signal.entryZone.max}`,
+      takeProfits: `TP1: $${signal.targets[0]}, TP2: $${signal.targets[1]}${signal.targets[2] ? `, TP3: $${signal.targets[2]}` : ''}`,
+      stopLoss: `$${signal.stopLoss.price}`,
+      invalidateIf: signal.invalidation,
+      sourcesWithLinks: reiService.isUsingMocks() ? 
+        [{ name: 'Mock Data Engine', url: '#' }] : 
+        [{ name: 'REI Network API', url: 'https://api.reisearch.box' }]
+    };
   };
 
   // Format market data for display
-  const formatMarketData = (data: MarketData, asset: string): string => {
-    return `📊 Market Data — ${asset.toUpperCase()}
-💰 Current Price: $${data.price}
-📈 24h Change: ${data.priceChange24h}% (${data.priceChangeDirection})
-💵 24h Volume: $${formatNumber(data.volume24h)}
-📉 Market Cap: $${formatNumber(data.marketCap)}
+  const formatMarketData = (data: MarketData, asset: string): ResponseCard => {
+    const bullets = [
+      `💰 Current Price: $${data.price.toLocaleString()}`,
+      `📈 24h Change: ${data.priceChange24h >= 0 ? '+' : ''}${data.priceChange24h}% (${data.priceChangeDirection})`,
+      `💵 24h Volume: $${formatNumber(data.volume24h)}`,
+      `📊 Market Cap: $${formatNumber(data.marketCap)}`,
+      '',
+      '⚡ Technical Indicators:',
+      `• RSI (14): ${data.technicals.rsi}`,
+      `• MACD: ${data.technicals.macd}`,
+      `• Volume Profile: ${data.technicals.volumeProfile}`
+    ];
 
-⚡ Technical Indicators:
-• RSI (14): ${data.technicals.rsi}
-• MACD: ${data.technicals.macd}
-• Volume Profile: ${data.technicals.volumeProfile}`;
-  };
-
-  // Generate trading signal using REI API
-  const generateTradingSignal = async (asset: string): Promise<ResponseCard> => {
-    try {
-      // Fetch data from REI API
-      const signalData = await reiService.getTradingSignal(asset.toUpperCase());
-      
-      // Format according to template
-      const formattedSignal = formatTradingSignal(signalData, asset);
-      const sources = getRotatingSources(3);
-      setSourceIndex(prev => (prev + 3) % cryptoSources.length);
-      
-      return {
-        id: Date.now().toString(),
-        query: `REI signal for ${asset.toUpperCase()}`,
-        headline: `${asset.toUpperCase()} Trading Signal — ${new Date().toLocaleDateString()}`,
-        bullets: formattedSignal.split('\n').filter(line => line.startsWith('•')).map(line => line.substring(1).trim()),
-        sentiment: 'REI Network',
-        sources: sources.map(s => s.name),
-        timestamp: new Date(),
-        bookmarked: false,
-        rawContent: formattedSignal,
-        asset: asset.toUpperCase(),
-        currentPrice: `$${signalData.currentPrice}`,
-        view: signalData.view,
-        sourcesWithLinks: sources
-      };
-    } catch (error: any) {
-      throw new Error(`REI API Error: ${error.message}`);
-    }
-  };
-
-  // Fetch and display REI market data
-  const fetchMarketData = async (asset: string): Promise<ResponseCard> => {
-    try {
-      const marketData = await reiService.getMarketData(asset.toUpperCase());
-      const formattedData = formatMarketData(marketData, asset);
-      const sources = getRotatingSources(2);
-      setSourceIndex(prev => (prev + 2) % cryptoSources.length);
-      
-      return {
-        id: Date.now().toString(),
-        query: `REI market data for ${asset.toUpperCase()}`,
-        headline: `${asset.toUpperCase()} Market Analysis — ${new Date().toLocaleDateString()}`,
-        bullets: formattedData.split('\n').filter(line => line.startsWith('•')).map(line => line.substring(1).trim()),
-        sentiment: 'REI Network',
-        sources: sources.map(s => s.name),
-        timestamp: new Date(),
-        bookmarked: false,
-        rawContent: formattedData,
-        asset: asset.toUpperCase(),
-        currentPrice: `$${marketData.price}`,
-        sourcesWithLinks: sources
-      };
-    } catch (error: any) {
-      throw new Error(`REI API Error: ${error.message}`);
-    }
-  };
-
-  // Start polling for real-time updates
-  const startReiDataPolling = (asset: string, interval = 60000) => {
-    // Clear any existing polling
-    if (activePolling) clearInterval(activePolling);
-    
-    // Initial fetch
-    const fetchAndUpdate = async () => {
-      try {
-        const marketData = await reiService.getMarketData(asset.toUpperCase());
-        
-        // Update watchlist if asset exists
-        setWatchlist(prev => prev.map(item => 
-          item.symbol === asset.toUpperCase() 
-            ? { 
-                ...item, 
-                price: marketData.price, 
-                change: marketData.priceChange24h,
-                changePercent: marketData.priceChange24h,
-                lastUpdate: new Date() 
-              }
-            : item
-        ));
-        
-        console.log(`Updated ${asset.toUpperCase()} data: $${marketData.price}`);
-      } catch (error: any) {
-        console.error(`Error updating ${asset} data:`, error.message);
-      }
+    return {
+      id: Date.now().toString(),
+      query: `Market data for ${asset}`,
+      headline: `📊 ${asset.toUpperCase()} Market Data`,
+      bullets,
+      sentiment: data.priceChange24h >= 0 ? 'Bullish' : 'Bearish',
+      sources: reiService.isUsingMocks() ? ['Mock Data Engine'] : ['REI Network API'],
+      timestamp: new Date(),
+      asset: asset.toUpperCase(),
+      sourcesWithLinks: reiService.isUsingMocks() ? 
+        [{ name: 'Mock Data Engine', url: '#' }] : 
+        [{ name: 'REI Network API', url: 'https://api.reisearch.box' }]
     };
-    
-    // Initial fetch
-    fetchAndUpdate();
-    
-    // Set up polling
-    const intervalId = setInterval(fetchAndUpdate, interval);
-    setActivePolling(intervalId);
-    
-    return `Started real-time updates for ${asset.toUpperCase()} (interval: ${interval/1000}s)`;
   };
 
-  // Enhanced API call function with REI Network integration
-  const callOpenRouterAPI = async (userQuery: string): Promise<ResponseCard> => {
-    try {
-      // Check if this is a REI-specific command
-      const reiCommandMatch = userQuery.toLowerCase().match(/rei\s+(signal|market|watch)\s+(\w+)/);
-      if (reiCommandMatch) {
-        const [, command, asset] = reiCommandMatch;
-        
-        switch (command) {
-          case 'signal':
-            return await generateTradingSignal(asset);
-          case 'market':
-            return await fetchMarketData(asset);
-          case 'watch':
-            const message = startReiDataPolling(asset);
-            const sources = getRotatingSources(2);
-            return {
-              id: Date.now().toString(),
-              query: userQuery,
-              headline: `Real-time Monitoring Started`,
-              bullets: [message, 'Data will update automatically', 'Use "rei unwatch" to stop'],
-              sentiment: 'REI Network',
-              sources: sources.map(s => s.name),
-              timestamp: new Date(),
-              bookmarked: false,
-              sourcesWithLinks: sources
-            };
-        }
-      }
+  // Handle REI API commands
+  const handleReiCommand = async (args: string[]): Promise<ResponseCard | null> => {
+    const subCommand = args[0]?.toLowerCase();
+    const symbol = args[1]?.toUpperCase() || 'SOL';
+    
+    switch (subCommand) {
+      case 'test':
+        const testResult = await reiService.testConnection();
+        return {
+          id: Date.now().toString(),
+          query: 'REI API connection test',
+          headline: testResult.success ? '✅ REI API Connection Test' : '❌ REI API Connection Failed',
+          bullets: [
+            testResult.message,
+            testResult.details ? `Details: ${JSON.stringify(testResult.details, null, 2)}` : '',
+            testResult.success ? 'API is ready for live data' : 'Falling back to mock data mode'
+          ].filter(Boolean),
+          sentiment: testResult.success ? 'Connected' : 'Disconnected',
+          sources: ['REI Network API Test'],
+          timestamp: new Date()
+        };
 
-      // Check for unwatch command
-      if (userQuery.toLowerCase().includes('rei unwatch')) {
-        if (activePolling) {
-          clearInterval(activePolling);
-          setActivePolling(null);
-          const sources = getRotatingSources(1);
+      case 'debug':
+        enableDebugMode();
+        return {
+          id: Date.now().toString(),
+          query: 'Enable debug mode',
+          headline: '🔧 Debug Mode Enabled',
+          bullets: [
+            'REI API debug mode is now active',
+            'Check browser console for detailed API logs',
+            'All API requests and responses will be logged',
+            'Use "rei test" to verify connection with debug info'
+          ],
+          sentiment: 'Debug',
+          sources: ['System'],
+          timestamp: new Date()
+        };
+
+      case 'signal':
+        try {
+          const signalData = await reiService.getTradingSignal(symbol);
+          return formatTradingSignal(signalData, symbol);
+        } catch (error: any) {
           return {
             id: Date.now().toString(),
-            query: userQuery,
-            headline: 'Real-time Monitoring Stopped',
-            bullets: ['Stopped all real-time updates', 'Use "rei watch <symbol>" to restart'],
-            sentiment: 'REI Network',
-            sources: sources.map(s => s.name),
-            timestamp: new Date(),
-            bookmarked: false,
-            sourcesWithLinks: sources
+            query: `Trading signal for ${symbol}`,
+            headline: `❌ Error: ${symbol} Signal Failed`,
+            bullets: [
+              `Failed to fetch trading signal: ${error.message}`,
+              reiService.isUsingMocks() ? 'Using mock data mode' : 'Check API connection',
+              'Try: rei test - to check API status',
+              'Try: rei debug - to enable detailed logging'
+            ],
+            sentiment: 'Error',
+            sources: ['Error Handler'],
+            timestamp: new Date()
           };
         }
-      }
-
-      // Extract asset from query for REI data integration
-      const assetMatch = userQuery.match(/\b(BTC|ETH|SOL|HYPE|MOODENG|PNUT|FARTCOIN|VINE)\b/i);
-      let reiData = null;
-      
-      if (assetMatch) {
+        
+      case 'market':
         try {
-          reiData = await reiService.getTradingSignal(assetMatch[0].toUpperCase());
-        } catch (error) {
-          console.log('REI data not available, using fallback');
+          const marketData = await reiService.getMarketData(symbol);
+          return formatMarketData(marketData, symbol);
+        } catch (error: any) {
+          return {
+            id: Date.now().toString(),
+            query: `Market data for ${symbol}`,
+            headline: `❌ Error: ${symbol} Market Data Failed`,
+            bullets: [
+              `Failed to fetch market data: ${error.message}`,
+              reiService.isUsingMocks() ? 'Using mock data mode' : 'Check API connection',
+              'Try: rei test - to check API status',
+              'Available symbols: BTC, ETH, SOL, HYPE, MOODENG, PNUT, FARTCOIN'
+            ],
+            sentiment: 'Error',
+            sources: ['Error Handler'],
+            timestamp: new Date()
+          };
         }
-      }
 
-      const currentDate = new Date();
-      const formattedDate = currentDate.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer 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`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'Traxor Intelligence Terminal',
-        },
-        body: JSON.stringify({
-          model: 'openai/gpt-4.1:online',
-          temperature: 0.7,
-          top_p: 1.0,
-          frequency_penalty: 0,
-          presence_penalty: 0,
-          plugins: [
-            {
-              id: 'web',
-              max_results: 10,
-              search_prompt: `A web search was conducted on ${formattedDate}. Incorporate the following real-time crypto market results into your analysis. IMPORTANT: Prioritize sources such as tronweekly.com, beincrypto.com, coindesk.com, cryptotimes.io, thecoinrepublic.com, fxleaders.com, bitget.com, cryptobriefing.com, cryptopotato.com, cryptoslate.com, and lookonchain.com. Cite each source using markdown with the domain name.`
-            }
+      case 'status':
+        return {
+          id: Date.now().toString(),
+          query: 'REI API status',
+          headline: '📊 REI API Status',
+          bullets: [
+            `Connection Status: ${apiStatus}`,
+            `Mode: ${reiService.isUsingMocks() ? 'Mock Data' : 'Live API'}`,
+            `Message: ${apiMessage}`,
+            `Base URL: https://api.reisearch.box`,
+            `Available Commands: test, debug, signal, market, status`
           ],
-          messages: [
-            {
-              role: 'system',
-              content: `You are a tactical crypto trading strategist with access to live web data and REI Network integration. Your job is to generate clear, structured, and actionable trade setups — not summaries or vague outlooks. Every signal must include a specific directional view (bullish, bearish, or neutral) backed by real-time technical analysis.
+          sentiment: apiStatus === 'connected' ? 'Connected' : 'Disconnected',
+          sources: ['System Status'],
+          timestamp: new Date()
+        };
 
-${reiData ? `REI Network Data Available:
-Asset: ${reiData.asset}
-Current Price: $${reiData.currentPrice}
-View: ${reiData.view} - ${reiData.viewReason}
-Entry Zone: $${reiData.entryZone.min} to $${reiData.entryZone.max}
-Targets: $${reiData.targets.join(', $')}
-Stop Loss: $${reiData.stopLoss.price}
-Use this REI data as the foundation for your analysis.` : ''}`
-            },
-            {
-              role: 'user',
-              content: `Today is ${formattedDate}.
+      default:
+        return {
+          id: Date.now().toString(),
+          query: `Unknown REI command: ${subCommand}`,
+          headline: '❓ Unknown REI Command',
+          bullets: [
+            `Unknown REI command: ${subCommand}`,
+            'Available commands:',
+            '• rei test - Test API connection',
+            '• rei debug - Enable debug logging',
+            '• rei signal <SYMBOL> - Get trading signal',
+            '• rei market <SYMBOL> - Get market data',
+            '• rei status - Show API status',
+            '',
+            'Examples:',
+            '• rei signal SOL',
+            '• rei market BTC'
+          ],
+          sentiment: 'Help',
+          sources: ['Help System'],
+          timestamp: new Date()
+        };
+    }
+  };
 
-Give me a tactical trading signal for the following query:
-
-"${userQuery}"
-
-Use live web data, recent headlines, exchange flow, sentiment, and chart-based logic.
-
-🧠 Output in this exact format:
-
-🧠 Signal — ${formattedDate}
-
-📈 Asset: [Token or asset being discussed]
-
-💰 Current Price: $[CURRENT LIVE PRICE] → [Include the actual current price from your web search or REI data]
-
-Important - These 5 points must be filled in with each response. 
-• 💡 View: Bullish/Bearish/Neutral → [Concise directional bias with technical and sentiment justification. Be specific.]
-• 🎯 Entry Zone: $___ to $___ → [Key support or structure area to enter.]
-• 💰 Take Profits: TP1 $___ → TP2 $___ → TP3 $___ → [ALL THREE TAKE PROFITS ARE MANDATORY - provide specific price levels]
-• 🛑 Stop Loss: $___ (or "15m close below $___") → [Tight, structure-based SL.]
-• 🚨 Invalidate if: [Macro, BTC/ETH rejection, funding flip, major volume shift — be precise.]
-
-🔍 Insights:
-• What's driving this move? → [MANDATORY: Provide specific catalyst or driver]
-• Recent chart behavior → [MANDATORY: Describe recent price action and patterns]
-• Supporting or contradicting signals → [MANDATORY: Technical indicators, volume, sentiment analysis]
-• Wildcard/Meta factor → [MANDATORY: Market psychology, fear/greed, macro context]
-
-IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, actionable information. Do not leave any field empty or with placeholder text.`
-            }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API call failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      let content = data.choices[0].message.content;
-
-      // Extract sources from markdown links before removing formatting
-      let sourcesWithLinks = [];
-      const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-      let match;
-
-      while ((match = markdownLinkRegex.exec(content)) !== null) {
-        const name = match[1];
-        const url = match[2];
-        
-        try {
-          const domain = new URL(url).hostname.replace('www.', '');
-          sourcesWithLinks.push({ name: domain, url });
-        } catch {
-          sourcesWithLinks.push({ name, url });
-        }
-      }
+  // Updated API call function using REI service
+  const callReiAPI = async (userQuery: string): Promise<ResponseCard> => {
+    try {
+      // Parse the query to determine what the user wants
+      const queryLower = userQuery.toLowerCase();
       
-      // If no sources found in content, use rotating sources
-      if (sourcesWithLinks.length === 0) {
-        sourcesWithLinks = getRotatingSources(3);
-        setSourceIndex(prev => (prev + 3) % cryptoSources.length);
-      }
-
-      // Remove ** formatting from content
-      content = content.replace(/\*\*(.*?)\*\*/g, '$1');
-
-      // Enhanced parsing for the new format with current price
-      const lines = content.split('\n').filter(line => line.trim());
-      let headline = 'Crypto Trading Signal';
-      let asset = '';
-      let currentPrice = '';
-      let view = '';
-      let entryZone = '';
-      let takeProfits = '';
-      let stopLoss = '';
-      let invalidateIf = '';
-      const bullets: string[] = [];
-      const insights: string[] = [];
-      let currentSection = '';
-
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        
-        // Extract headline
-        if (trimmedLine.includes('🧠 Signal —')) {
-          headline = trimmedLine.replace('🧠 Signal —', '').trim();
-          continue;
-        }
-        
-        // Extract asset
-        if (trimmedLine.includes('📈 Asset:')) {
-          asset = trimmedLine.replace('📈 Asset:', '').trim();
-          continue;
-        }
-        
-        // Extract current price
-        if (trimmedLine.includes('💰 Current Price:')) {
-          currentPrice = trimmedLine.replace('💰 Current Price:', '').trim();
-          continue;
-        }
-        
-        // Extract structured data
-        if (trimmedLine.includes('💡 View:')) {
-          view = trimmedLine.replace('• 💡 View:', '').trim();
-          bullets.push(trimmedLine.substring(1).trim());
-        } else if (trimmedLine.includes('🎯 Entry Zone:')) {
-          entryZone = trimmedLine.replace('• 🎯 Entry Zone:', '').trim();
-          bullets.push(trimmedLine.substring(1).trim());
-        } else if (trimmedLine.includes('💰 Take Profits:')) {
-          takeProfits = trimmedLine.replace('• 💰 Take Profits:', '').trim();
-          bullets.push(trimmedLine.substring(1).trim());
-        } else if (trimmedLine.includes('🛑 Stop Loss:')) {
-          stopLoss = trimmedLine.replace('• 🛑 Stop Loss:', '').trim();
-          bullets.push(trimmedLine.substring(1).trim());
-        } else if (trimmedLine.includes('🚨 Invalidate if:')) {
-          invalidateIf = trimmedLine.replace('• 🚨 Invalidate if:', '').trim();
-          bullets.push(trimmedLine.substring(1).trim());
-        }
-        
-        // Track sections
-        if (trimmedLine.includes('🔍 Insights:')) {
-          currentSection = 'insights';
-          continue;
-        }
-        
-        // Extract insights with better parsing
-        if (currentSection === 'insights' && trimmedLine.startsWith('•')) {
-          const insightText = trimmedLine.substring(1).trim();
-          
-          // Check for specific insight patterns and add content if missing
-          if (insightText.includes("What's driving this move?")) {
-            if (insightText.length < 50) {
-              insights.push("What's driving this move? → Market sentiment shift detected via social metrics and volume analysis");
-            } else {
-              insights.push(insightText);
-            }
-          } else if (insightText.includes("Recent chart behavior")) {
-            if (insightText.length < 50) {
-              insights.push("Recent chart behavior → Price consolidation near key support with bullish divergence forming");
-            } else {
-              insights.push(insightText);
-            }
-          } else if (insightText.includes("Supporting") || insightText.includes("Contradicting")) {
-            if (insightText.length < 50) {
-              insights.push("Supporting/Contradicting signals → RSI showing oversold bounce potential, funding rates neutral");
-            } else {
-              insights.push(insightText);
-            }
-          } else if (insightText.includes("Wildcard") || insightText.includes("Meta")) {
-            if (insightText.length < 50) {
-              insights.push("Wildcard/Meta → Fear & Greed index at extreme levels, potential contrarian opportunity");
-            } else {
-              insights.push(insightText);
-            }
-          } else {
-            insights.push(insightText);
-          }
+      // Extract asset symbol from query
+      const cryptoSymbols = ['btc', 'eth', 'sol', 'hype', 'moodeng', 'pnut', 'fartcoin'];
+      let asset = 'SOL'; // default
+      
+      for (const symbol of cryptoSymbols) {
+        if (queryLower.includes(symbol)) {
+          asset = symbol.toUpperCase();
+          break;
         }
       }
 
-      // If insights are still empty, add default insights
-      if (insights.length === 0) {
-        insights.push(
-          "What's driving this move? → Live market data analysis shows institutional flow patterns",
-          "Recent chart behavior → Technical structure indicates key level interaction",
-          "Supporting/Contradicting signals → Volume and momentum indicators align with directional bias",
-          "Wildcard/Meta → Market sentiment and macro factors provide additional context"
-        );
+      // Determine if user wants market data or trading signal
+      if (queryLower.includes('market') || queryLower.includes('price') || queryLower.includes('data')) {
+        const marketData = await reiService.getMarketData(asset);
+        return formatMarketData(marketData, asset);
+      } else {
+        // Default to trading signal
+        const signalData = await reiService.getTradingSignal(asset);
+        return formatTradingSignal(signalData, asset);
       }
 
-      // Combine all bullets for display
-      const allBullets = [...bullets, ...insights];
-
-      // If no structured bullets found, try to extract from the raw content
-      if (allBullets.length === 0) {
-        const bulletMatches = content.match(/•[^•]+/g);
-        if (bulletMatches) {
-          allBullets.push(...bulletMatches.map(bullet => bullet.substring(1).trim()));
-        }
-      }
-
-      // If still no bullets, use the entire content as a single bullet
-      if (allBullets.length === 0) {
-        allBullets.push(content.replace(/🧠|📈|🔍|📎/g, '').replace(/---/g, '').trim());
-      }
-
+    } catch (error: any) {
+      console.error('REI API call failed:', error);
+      
+      // Return error response
       return {
         id: Date.now().toString(),
         query: userQuery,
-        headline: headline || `Crypto Signal — ${formattedDate}`,
-        bullets: allBullets,
-        sentiment: reiData ? 'REI Network + Web Data' : 'Traxor Engine',
-        sources: sourcesWithLinks.map(s => s.name),
-        timestamp: new Date(),
-        bookmarked: false,
-        rawContent: content,
-        asset,
-        currentPrice: currentPrice || (reiData ? `$${reiData.currentPrice}` : ''),
-        view,
-        entryZone,
-        takeProfits,
-        stopLoss,
-        invalidateIf,
-        insights,
-        sourcesWithLinks
-      };
-
-    } catch (error) {
-      console.error('API call failed:', error);
-      
-      // Fallback to mock response with rotating sources
-      const fallbackSources = getRotatingSources(3);
-      setSourceIndex(prev => (prev + 3) % cryptoSources.length);
-      
-      return {
-        id: Date.now().toString(),
-        query: userQuery,
-        headline: `Crypto Signal — ${new Date().toLocaleDateString()}`,
+        headline: '❌ API Error',
         bullets: [
-          '💰 Current Price: $42,850 → Live market data',
-          '💡 View: Bullish → Strong momentum continuation pattern',
-          '🎯 Entry Zone: $42,800 to $43,200',
-          '💰 Take Profits: TP1 $45,500 → TP2 $47,200 → TP3 $49,000',
-          '🛑 Stop Loss: $41,500 (hard exit)',
-          '🚨 Invalidate if: BTC dumps 3%, funding > +0.3%',
-          "What's driving this move? → Whale accumulation detected in last 6 hours",
-          'Recent chart behavior → Bullish flag formation with volume confirmation',
-          'Supporting/Contradicting signals → Options flow showing bullish positioning',
-          'Wildcard/Meta → Fear & Greed index showing extreme fear, contrarian signal'
+          `Failed to process query: ${error.message}`,
+          reiService.isUsingMocks() ? 'Currently using mock data' : 'Check API connection',
+          'Try using specific commands like:',
+          '• rei signal SOL',
+          '• rei market BTC',
+          '• rei test (to check connection)'
         ],
-        sentiment: 'REI Network Fallback',
-        sources: fallbackSources.map(s => s.name),
-        timestamp: new Date(),
-        bookmarked: false,
-        currentPrice: '$42,850',
-        sourcesWithLinks: fallbackSources
+        sentiment: 'Error',
+        sources: ['Error Handler'],
+        timestamp: new Date()
       };
     }
   };
@@ -660,18 +430,89 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
     if (!query.trim()) return;
 
     setIsLoading(true);
-    setSidebarOpen(false);
+    setSidebarOpen(false); // Close sidebar on mobile when submitting
     
     try {
-      const newResponse = await callOpenRouterAPI(query);
+      let newResponse: ResponseCard;
+
+      // Check if it's a REI command
+      if (query.trim().toLowerCase().startsWith('rei ')) {
+        const args = query.trim().split(' ').slice(1); // Remove 'rei' prefix
+        const reiResponse = await handleReiCommand(args);
+        if (reiResponse) {
+          newResponse = reiResponse;
+        } else {
+          throw new Error('Unknown REI command');
+        }
+      } else if (query.trim().toLowerCase() === 'help') {
+        // Handle help command
+        newResponse = {
+          id: Date.now().toString(),
+          query: 'help',
+          headline: '📚 Traxor Terminal Help',
+          bullets: [
+            '🧠 Natural Language Queries:',
+            '• "What\'s the BTC setup looking like?"',
+            '• "Give me an ETH trading signal"',
+            '• "Analyze SOL price action today"',
+            '',
+            '🔧 REI Network Commands:',
+            '• rei signal <SYMBOL> - Get trading signal',
+            '• rei market <SYMBOL> - Get market data', 
+            '• rei test - Test API connection',
+            '• rei debug - Enable debug logging',
+            '• rei status - Show API status',
+            '',
+            '📊 Available Symbols:',
+            '• BTC, ETH, SOL, HYPE, MOODENG, PNUT, FARTCOIN',
+            '',
+            '💡 Examples:',
+            '• rei signal SOL',
+            '• rei market BTC',
+            '• What\'s driving HYPE today?'
+          ],
+          sentiment: 'Help',
+          sources: ['Help System'],
+          timestamp: new Date()
+        };
+      } else if (query.trim().toLowerCase() === 'clear') {
+        // Clear terminal
+        setResponses([]);
+        setQuery('');
+        setIsLoading(false);
+        return;
+      } else {
+        // Handle natural language queries
+        newResponse = await callReiAPI(query);
+      }
+      
       setResponses(prev => [newResponse, ...prev]);
       setQuery('');
       
+      // Play sound effect
       if (soundEnabled) {
-        console.log('🔊 Signal processed with REI Network data');
+        console.log('🔊 Signal processed');
       }
     } catch (error) {
       console.error('Failed to get response:', error);
+      
+      // Add error response
+      const errorResponse: ResponseCard = {
+        id: Date.now().toString(),
+        query: query,
+        headline: '❌ Processing Error',
+        bullets: [
+          'Failed to process your request',
+          'Please try again or use a specific command',
+          'Type "help" for available commands',
+          'Type "rei test" to check API connection'
+        ],
+        sentiment: 'Error',
+        sources: ['Error Handler'],
+        timestamp: new Date()
+      };
+      
+      setResponses(prev => [errorResponse, ...prev]);
     } finally {
       setIsLoading(false);
     }
@@ -689,7 +530,7 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
   };
 
   const navItems = [
-    { id: 'ask', icon: Brain, label: 'REI Signal Engine', badge: responses.length },
+    { id: 'ask', icon: Brain, label: 'Signal Engine', badge: responses.length },
     { id: 'watchlist', icon: Radio, label: 'Watchlist', badge: watchlist.length },
     { id: 'logs', icon: FileText, label: 'Trade Logs', badge: tradeLogs.filter(t => t.status === 'PENDING').length },
     { id: 'history', icon: History, label: 'Signal Archive', badge: responses.filter(r => r.bookmarked).length },
@@ -708,12 +549,31 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
     { symbol: 'VINE', price: 0.035243, change: -6.32 }
   ];
 
-  // Clean up on component unmount
-  useEffect(() => {
-    return () => {
-      if (activePolling) clearInterval(activePolling);
-    };
-  }, [activePolling]);
+  const getApiStatusIcon = () => {
+    switch (apiStatus) {
+      case 'connected':
+        return <CheckCircle className="w-3 h-3 text-green-400" />;
+      case 'disconnected':
+        return <XCircle className="w-3 h-3 text-red-400" />;
+      case 'testing':
+        return <Activity className="w-3 h-3 text-yellow-400 animate-pulse" />;
+      default:
+        return <AlertTriangle className="w-3 h-3 text-gray-400" />;
+    }
+  };
+
+  const getApiStatusColor = () => {
+    switch (apiStatus) {
+      case 'connected':
+        return 'text-green-400';
+      case 'disconnected':
+        return 'text-red-400';
+      case 'testing':
+        return 'text-yellow-400';
+      default:
+        return 'text-gray-400';
+    }
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -724,7 +584,9 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
               <div className="bg-[#1D1E22]/80 border border-[#FF7744]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-pulse backdrop-blur-md shadow-2xl">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-3 h-3 bg-[#FF7744] rounded-full animate-ping" />
-                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">REI Network + Web Data processing...</span>
+                  <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">
+                    {reiService.isUsingMocks() ? 'Mock Engine processing...' : 'REI API processing...'}
+                  </span>
                 </div>
                 <div className="space-y-3">
                   <div className="h-3 sm:h-4 bg-[#2A2B32]/50 rounded w-3/4 animate-pulse" />
@@ -744,23 +606,18 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                     <h3 className="text-lg sm:text-xl font-semibold text-[#FF7744] mb-3 leading-tight font-mono">
                       {response.headline}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      {response.asset && (
+                    {response.asset && (
+                      <div className="flex items-center space-x-2 mb-3">
                         <span className="inline-block bg-[#33211D]/60 text-[#FF7744] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#FF7744]/20">
                           📈 {response.asset}
                         </span>
-                      )}
-                      {response.currentPrice && (
-                        <span className="inline-block bg-[#2B2417]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20 font-mono">
-                          💰 {response.currentPrice}
-                        </span>
-                      )}
-                      {response.sentiment && (
-                        <span className="inline-block bg-[#33211D]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20">
-                          {response.sentiment}
-                        </span>
-                      )}
-                    </div>
+                        {response.sentiment && (
+                          <span className="inline-block bg-[#33211D]/60 text-[#EBC26E] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border border-[#EBC26E]/20">
+                            {response.sentiment}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center space-x-1 sm:space-x-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2 sm:ml-4 flex-shrink-0">
                     <button 
@@ -796,15 +653,23 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                   <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                     {response.sourcesWithLinks && response.sourcesWithLinks.length > 0 && (
                       <>
-                        <span className="text-xs text-gray-400 font-medium mb-2 sm:mb-0">REI Network sources:</span>
+                        <span className="text-xs text-gray-400 font-medium mb-2 sm:mb-0">Sources:</span>
                         <div className="flex flex-wrap gap-2">
                           {response.sourcesWithLinks.map((source, index) => (
-                            <span 
+                            <a 
                               key={index} 
-                              className="text-xs px-2 sm:px-2.5 py-1 rounded-xl bg-[#2B2417]/60 text-[#EBC26E] border border-[#EBC26E]/20 cursor-default"
+                              href={source.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className={`text-xs px-2 sm:px-2.5 py-1 rounded-xl hover:bg-[#2B2417]/80 cursor-pointer transition-colors border flex items-center space-x-1 ${
+                                source.name === 'REI Network API' 
+                                  ? 'bg-[#33211D]/80 text-[#FF7744] border-[#FF7744]/30 hover:border-[#FF7744]/50' 
+                                  : 'bg-[#2B2417]/60 text-[#EBC26E] border-[#EBC26E]/20 hover:border-[#EBC26E]/40'
+                              }`}
                             >
-                              {source.name}
-                            </span>
+                              <span>{source.name}</span>
+                              {source.url !== '#' && <ExternalLink className="w-3 h-3" />}
+                            </a>
                           ))}
                         </div>
                       </>
@@ -824,28 +689,21 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                   <Brain className="w-8 sm:w-10 h-8 sm:h-10 text-[#121212]" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-                  REI Network Signal Engine Active
+                  Traxor Signal Engine Active
                 </h3>
                 <p className="text-gray-400 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base px-4">
-                  Ask about any crypto asset for live trading signals with REI Network data integration.
+                  Ask about any crypto asset for live trading signals with real-time data synthesis.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto px-4">
-                  {['rei signal BTC', 'rei market ETH', 'rei watch SOL', 'rei signal HYPE'].map((suggestion, index) => (
+                  {['BTC setup', 'ETH momentum', 'SOL breakout', 'HYPE signals'].map((suggestion, index) => (
                     <button
                       key={index}
-                      onClick={() => setQuery(suggestion)}
+                      onClick={() => setQuery(`What's the ${suggestion} looking like right now?`)}
                       className="bg-[#1D1E22]/60 hover:bg-[#2A2B32]/60 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl transition-colors text-gray-300 hover:text-[#FF7744] border border-[#2A2B32] hover:border-[#FF7744]/20 text-sm font-medium backdrop-blur-sm"
                     >
                       {suggestion}
                     </button>
                   ))}
-                </div>
-                <div className="mt-6 text-xs text-gray-500">
-                  <p>REI Network Commands:</p>
-                  <p>• rei signal [SYMBOL] - Get trading signal</p>
-                  <p>• rei market [SYMBOL] - Get market data</p>
-                  <p>• rei watch [SYMBOL] - Start real-time monitoring</p>
-                  <p>• rei unwatch - Stop monitoring</p>
                 </div>
               </div>
             )}
@@ -856,13 +714,9 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
         return (
           <div className="space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl sm:text-2xl font-semibold text-[#FF7744]">REI Network Watchlist</h2>
+              <h2 className="text-xl sm:text-2xl font-semibold text-[#FF7744]">Signal Watchlist</h2>
               <div className="flex space-x-2">
-                <button 
-                  onClick={() => setQuery('rei watch BTC')}
-                  className="p-2 sm:p-2.5 bg-[#1D1E22]/60 hover:bg-[#2A2B32]/60 rounded-xl transition-colors border border-[#2A2B32] backdrop-blur-sm"
-                  title="Add to watchlist"
-                >
+                <button className="p-2 sm:p-2.5 bg-[#1D1E22]/60 hover:bg-[#2A2B32]/60 rounded-xl transition-colors border border-[#2A2B32] backdrop-blur-sm">
                   <Plus className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                 </button>
                 <button className="p-2 sm:p-2.5 bg-[#1D1E22]/60 hover:bg-[#2A2B32]/60 rounded-xl transition-colors border border-[#2A2B32] backdrop-blur-sm">
@@ -1005,17 +859,23 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                 <div className="space-y-3">
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">Traxor Version:</span>
-                    <span className="text-white font-medium text-sm sm:text-base">REI Network v3.2.1</span>
+                    <span className="text-white font-medium text-sm sm:text-base">Signal Engine v3.2.1</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-400 text-sm sm:text-base">AI Model:</span>
-                    <span className="text-green-400 font-medium text-sm sm:text-base">GPT-4.1 + REI Network</span>
+                    <span className="text-gray-400 text-sm sm:text-base">REI API Status:</span>
+                    <div className="flex items-center space-x-2">
+                      {getApiStatusIcon()}
+                      <span className={`font-medium text-sm sm:text-base ${getApiStatusColor()}`}>
+                        {apiStatus === 'connected' ? 'Connected' : 
+                         apiStatus === 'disconnected' ? 'Disconnected' :
+                         apiStatus === 'testing' ? 'Testing...' : 'Unknown'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-400 text-sm sm:text-base">REI Network:</span>
-                    <span className="text-green-400 flex items-center space-x-2 font-medium text-sm sm:text-base">
-                      <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>Connected</span>
+                    <span className="text-gray-400 text-sm sm:text-base">Data Mode:</span>
+                    <span className={`font-medium text-sm sm:text-base ${reiService.isUsingMocks() ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {reiService.isUsingMocks() ? 'Mock Data' : 'Live API'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -1041,10 +901,10 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                     </button>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-gray-300 text-sm sm:text-base">REI Network Polling</span>
+                    <span className="text-gray-300 text-sm sm:text-base">Signal Notifications</span>
                     <div className="relative">
-                      <div className={`w-10 h-5 sm:w-11 sm:h-6 rounded-full relative cursor-pointer shadow-inner ${activePolling ? 'bg-gradient-to-r from-[#FF7744] to-[#EBC26E]' : 'bg-[#2A2B32]'}`}>
-                        <div className={`w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform ${activePolling ? 'right-0.5' : 'left-0.5'}`}></div>
+                      <div className="w-10 h-5 sm:w-11 sm:h-6 bg-gradient-to-r from-[#FF7744] to-[#EBC26E] rounded-full relative cursor-pointer shadow-inner">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full absolute right-0.5 top-0.5 shadow-sm transition-transform"></div>
                       </div>
                     </div>
                   </div>
@@ -1054,16 +914,24 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
               <div className="bg-[#1D1E22]/80 border border-[#2A2B32] rounded-2xl sm:rounded-3xl p-4 sm:p-6 backdrop-blur-md shadow-2xl">
                 <h3 className="font-semibold mb-4 flex items-center space-x-2 text-base sm:text-lg">
                   <Database className="w-4 h-4 sm:w-5 sm:h-5 text-[#FF7744]" />
-                  <span className="text-white">REI Network Sources</span>
+                  <span className="text-white">Data Sources</span>
                 </h3>
                 <div className="space-y-3">
-                  {['REI Network API', 'Market Data Feed', 'Trading Signals', 'On-Chain Metrics', 'Historical Data', 'Real-time Polling'].map((source, index) => (
+                  {['REI Network API', 'Market Data Feeds', 'Technical Indicators', 'On-Chain Metrics', 'Social Sentiment', 'News Analytics'].map((source, index) => (
                     <div key={index} className="flex items-center justify-between py-2">
-                      <span className={`text-sm sm:text-base ${index === 0 ? 'text-[#FF7744] font-semibold' : 'text-gray-300'}`}>
+                      <span className={`text-sm sm:text-base ${source === 'REI Network API' ? 'text-[#FF7744] font-semibold' : 'text-gray-300'}`}>
                         {source}
-                        {index === 0 && <span className="ml-2 text-xs bg-[#33211D]/60 px-2 py-0.5 rounded-full border border-[#FF7744]/20">Primary</span>}
+                        {source === 'REI Network API' && (
+                          <span className="ml-2 text-xs bg-[#33211D]/60 px-2 py-0.5 rounded-full border border-[#FF7744]/20">
+                            {apiStatus === 'connected' ? 'Live' : 'Mock'}
+                          </span>
+                        )}
                       </span>
-                      <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full shadow-sm animate-pulse"></div>
+                      <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full shadow-sm ${
+                        source === 'REI Network API' ? 
+                          (apiStatus === 'connected' ? 'bg-green-400 animate-pulse' : 'bg-yellow-400') :
+                          'bg-green-400 animate-pulse'
+                      }`}></div>
                     </div>
                   ))}
                 </div>
@@ -1076,24 +944,22 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
                 </h3>
                 <div className="space-y-2">
                   <button className="w-full text-left p-3 hover:bg-[#2A2B32]/60 rounded-2xl transition-colors text-gray-300 hover:text-[#FF7744] border border-transparent hover:border-[#FF7744]/20 text-sm sm:text-base">
-                    Export REI Signal Archive
+                    Export Signal Archive
                   </button>
                   <button className="w-full text-left p-3 hover:bg-[#2A2B32]/60 rounded-2xl transition-colors text-gray-300 hover:text-[#FF7744] border border-transparent hover:border-[#FF7744]/20 text-sm sm:text-base">
                     Clear Session Data
                   </button>
                   <button 
-                    onClick={() => {
-                      if (activePolling) {
-                        clearInterval(activePolling);
-                        setActivePolling(null);
-                      }
+                    onClick={async () => {
+                      const result = await reiService.testConnection();
+                      alert(result.message);
                     }}
                     className="w-full text-left p-3 hover:bg-[#2A2B32]/60 rounded-2xl transition-colors text-gray-300 hover:text-[#FF7744] border border-transparent hover:border-[#FF7744]/20 text-sm sm:text-base"
                   >
-                    Stop REI Network Polling
+                    Test REI API Connection
                   </button>
                   <button className="w-full text-left p-3 hover:bg-red-900/20 rounded-2xl transition-colors text-red-400 hover:text-red-300 border border-transparent hover:border-red-700/30 text-sm sm:text-base">
-                    Reset REI Connection
+                    Reset Signal Engine
                   </button>
                 </div>
               </div>
@@ -1142,8 +1008,8 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
               <TerminalIcon className="w-5 h-5 sm:w-6 sm:h-6 text-[#121212]" />
             </div>
             <div>
-              <h1 className="font-bold text-lg sm:text-xl text-white">REI Network Terminal</h1>
-              <p className="text-xs text-gray-400">REI Engine v3.2.1</p>
+              <h1 className="font-bold text-lg sm:text-xl text-white">Traxor Signal Engine</h1>
+              <p className="text-xs text-gray-400">Engine v3.2.1</p>
             </div>
           </div>
         </div>
@@ -1181,8 +1047,13 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
         {/* Status */}
         <div className="p-3 sm:p-4 border-t border-[#2A2B32]">
           <div className="flex items-center space-x-2 text-xs text-gray-400">
-            <div className="w-2 h-2 bg-[#FF7744] rounded-full animate-pulse"></div>
-            <span>REI Network Connected</span>
+            {getApiStatusIcon()}
+            <span>
+              {apiStatus === 'connected' ? 'REI API Connected' :
+               apiStatus === 'disconnected' ? 'Using Mock Data' :
+               apiStatus === 'testing' ? 'Testing Connection...' :
+               'Signal Engine Active'}
+            </span>
           </div>
         </div>
       </div>
@@ -1201,9 +1072,9 @@ IMPORTANT: ALL fields above are MANDATORY and must be filled with specific, acti
             <div className="w-8 h-8 bg-gradient-to-br from-[#FF7744] to-[#EBC26E] rounded-xl flex items-center justify-center">
               <TerminalIcon className="w-4 h-4 text-[#121212]" />
             </div>
-            <span className="font-bold text-white">REI Terminal</span>
+            <span className="font-bold text-white">Traxor</span>
           </div>
-          <div className="w-9" />
+          <div className="w-9" /> {/* Spacer for centering */}
         </div>
 
         {/* Top Ticker */}

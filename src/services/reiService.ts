@@ -2,6 +2,14 @@
 import axios from 'axios';
 import { REI_API_KEY, REI_API_BASE_URL } from '../config/env';
 
+// Debug mode for troubleshooting
+let DEBUG_MODE = false;
+
+export const enableDebugMode = () => {
+  DEBUG_MODE = true;
+  console.log('REI API debug mode enabled');
+};
+
 // Create axios instance with REI API configuration
 const reiApiClient = axios.create({
   baseURL: REI_API_BASE_URL,
@@ -9,13 +17,44 @@ const reiApiClient = axios.create({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REI_API_KEY}`
   },
-  timeout: 10000 // 10 second timeout
+  timeout: 15000 // 15 second timeout
 });
 
-// Error handling middleware
+// Debug interceptors
+reiApiClient.interceptors.request.use(request => {
+  if (DEBUG_MODE) {
+    console.log('REI API Request:', {
+      url: request.url,
+      method: request.method,
+      params: request.params,
+      headers: {
+        ...request.headers,
+        Authorization: 'Bearer [REDACTED]' // Don't log the actual token
+      }
+    });
+  }
+  return request;
+});
+
 reiApiClient.interceptors.response.use(
-  response => response,
+  response => {
+    if (DEBUG_MODE) {
+      console.log('REI API Response:', {
+        status: response.status,
+        data: response.data
+      });
+    }
+    return response;
+  },
   error => {
+    if (DEBUG_MODE) {
+      console.error('REI API Error Details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
+    }
     console.error('REI API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
@@ -140,6 +179,45 @@ const mockMarketData = {
       macd: 'oversold bounce',
       volumeProfile: 'increasing'
     }
+  },
+  MOODENG: {
+    symbol: 'MOODENG',
+    price: 0.18271,
+    priceChange24h: -11.49,
+    priceChangeDirection: 'down',
+    volume24h: 9600000,
+    marketCap: 182710000,
+    technicals: {
+      rsi: 28.5,
+      macd: 'oversold',
+      volumeProfile: 'high'
+    }
+  },
+  PNUT: {
+    symbol: 'PNUT',
+    price: 0.25982,
+    priceChange24h: -9.44,
+    priceChangeDirection: 'down',
+    volume24h: 2600000,
+    marketCap: 259820000,
+    technicals: {
+      rsi: 31.2,
+      macd: 'oversold bounce potential',
+      volumeProfile: 'elevated'
+    }
+  },
+  FARTCOIN: {
+    symbol: 'FARTCOIN',
+    price: 1.3412,
+    priceChange24h: -1.38,
+    priceChangeDirection: 'down',
+    volume24h: 45000000,
+    marketCap: 1341200000,
+    technicals: {
+      rsi: 48.7,
+      macd: 'neutral',
+      volumeProfile: 'normal'
+    }
   }
 };
 
@@ -214,31 +292,289 @@ const mockTradingSignal = {
       sentiment: 'cautiously neutral',
       wildcard: 'Year-end institutional rebalancing could drive volatility'
     }
-  }
-};
-
-// Test if we can reach the API
-const testApiConnection = async (): Promise<boolean> => {
-  try {
-    // Try a simple request to test connectivity
-    await reiApiClient.get('/health', { timeout: 5000 });
-    return true;
-  } catch (error) {
-    console.log('API connection test failed, using mock data');
-    return false;
+  },
+  ETH: {
+    asset: 'ETH',
+    currentPrice: 2740.4,
+    view: 'Bearish' as const,
+    viewReason: 'Continued weakness below key resistance levels',
+    entryZone: {
+      min: 2720,
+      max: 2760,
+      reasoning: 'Current resistance zone with failed breakout attempts'
+    },
+    targets: [2650, 2550, 2400],
+    stopLoss: {
+      price: 2820,
+      reasoning: 'Above recent swing high and 200-day EMA'
+    },
+    invalidation: 'Daily close above 2820 or BTC breaks above 110k with strength',
+    analysis: {
+      summary: 'Bearish continuation pattern with weak momentum',
+      details: 'ETH showing relative weakness to BTC with failed breakout attempts'
+    },
+    insights: {
+      driver: 'Layer 2 competition and reduced DeFi activity',
+      chartBehavior: 'Lower highs and lower lows pattern forming',
+      supportingSignals: [
+        'ETH/BTC ratio declining',
+        'Gas fees remaining low indicating reduced usage',
+        'Staking rewards not attracting new capital'
+      ],
+      contradictingSignals: [
+        'Strong support at 2600 level',
+        'Upcoming protocol upgrades'
+      ],
+      sentiment: 'bearish',
+      wildcard: 'Ethereum ETF flows could change sentiment quickly'
+    }
+  },
+  HYPE: {
+    asset: 'HYPE',
+    currentPrice: 41.480,
+    view: 'Neutral' as const,
+    viewReason: 'Oversold bounce potential after recent decline',
+    entryZone: {
+      min: 40.50,
+      max: 42.80,
+      reasoning: 'Current support zone with oversold conditions'
+    },
+    targets: [45.00, 48.50, 52.00],
+    stopLoss: {
+      price: 38.00,
+      reasoning: 'Below key psychological support level'
+    },
+    invalidation: 'Break below 38.00 or broader market selloff continues',
+    analysis: {
+      summary: 'Oversold conditions suggest potential bounce',
+      details: 'HYPE has declined significantly and may be due for a relief rally'
+    },
+    insights: {
+      driver: 'Oversold technical conditions and potential bargain hunting',
+      chartBehavior: 'Steep decline with potential reversal signals',
+      supportingSignals: [
+        'RSI in oversold territory',
+        'Volume increasing on recent decline',
+        'Approaching key support levels'
+      ],
+      contradictingSignals: [
+        'Overall market sentiment remains weak',
+        'Limited fundamental catalysts'
+      ],
+      sentiment: 'cautiously optimistic',
+      wildcard: 'Meme coin sector rotation could provide unexpected momentum'
+    }
+  },
+  MOODENG: {
+    asset: 'MOODENG',
+    currentPrice: 0.18271,
+    view: 'Bearish' as const,
+    viewReason: 'Severe oversold conditions but momentum still negative',
+    entryZone: {
+      min: 0.17500,
+      max: 0.19000,
+      reasoning: 'Current price zone with extreme oversold readings'
+    },
+    targets: [0.15000, 0.12500, 0.10000],
+    stopLoss: {
+      price: 0.20500,
+      reasoning: 'Above recent resistance and 50% retracement'
+    },
+    invalidation: 'Daily close above 0.205 or meme coin sector reversal',
+    analysis: {
+      summary: 'Extreme oversold but trend remains bearish',
+      details: 'MOODENG showing severe weakness with potential for further decline'
+    },
+    insights: {
+      driver: 'Meme coin sector rotation and profit-taking',
+      chartBehavior: 'Steep decline with no clear support levels',
+      supportingSignals: [
+        'Extremely oversold RSI',
+        'High volume on decline',
+        'Potential dead cat bounce setup'
+      ],
+      contradictingSignals: [
+        'No clear fundamental support',
+        'Meme coin sector under pressure'
+      ],
+      sentiment: 'very bearish',
+      wildcard: 'Social media sentiment could drive unexpected volatility'
+    }
+  },
+  PNUT: {
+    asset: 'PNUT',
+    currentPrice: 0.25982,
+    view: 'Bearish' as const,
+    viewReason: 'Continued selling pressure in meme coin sector',
+    entryZone: {
+      min: 0.25000,
+      max: 0.27000,
+      reasoning: 'Current resistance zone with failed bounce attempts'
+    },
+    targets: [0.22000, 0.18000, 0.15000],
+    stopLoss: {
+      price: 0.29000,
+      reasoning: 'Above recent swing high and key resistance'
+    },
+    invalidation: 'Daily close above 0.29 or sector sentiment reversal',
+    analysis: {
+      summary: 'Bearish trend continuation expected',
+      details: 'PNUT following broader meme coin weakness with limited support'
+    },
+    insights: {
+      driver: 'Meme coin sector rotation and reduced retail interest',
+      chartBehavior: 'Lower highs pattern with weak bounces',
+      supportingSignals: [
+        'Sector-wide weakness',
+        'Reduced social media mentions',
+        'Volume declining on bounces'
+      ],
+      contradictingSignals: [
+        'Oversold technical readings',
+        'Potential for meme coin revival'
+      ],
+      sentiment: 'bearish',
+      wildcard: 'Viral social media content could drive sudden reversal'
+    }
+  },
+  FARTCOIN: {
+    asset: 'FARTCOIN',
+    currentPrice: 1.3412,
+    view: 'Neutral' as const,
+    viewReason: 'Holding better than other meme coins, consolidating',
+    entryZone: {
+      min: 1.30,
+      max: 1.38,
+      reasoning: 'Current consolidation range with relative strength'
+    },
+    targets: [1.45, 1.55, 1.70],
+    stopLoss: {
+      price: 1.25,
+      reasoning: 'Below key support and psychological level'
+    },
+    invalidation: 'Break below 1.25 or broader meme coin selloff',
+    analysis: {
+      summary: 'Relative strength in weak sector suggests potential',
+      details: 'FARTCOIN showing resilience compared to other meme coins'
+    },
+    insights: {
+      driver: 'Relative strength and potential sector rotation',
+      chartBehavior: 'Sideways consolidation with higher lows',
+      supportingSignals: [
+        'Outperforming other meme coins',
+        'Volume remaining steady',
+        'RSI in neutral territory'
+      ],
+      contradictingSignals: [
+        'Overall meme coin sector weakness',
+        'Limited fundamental value'
+      ],
+      sentiment: 'cautiously neutral',
+      wildcard: 'Meme coin sector leader potential if sentiment improves'
+    }
   }
 };
 
 // Determine if we should use mock data
 let USE_MOCKS = !REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here';
 
+// Test API connection with multiple endpoints
+const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: string; error?: string }> => {
+  const testEndpoints = [
+    '/health',
+    '/status', 
+    '/api/health',
+    '/v1/health',
+    '/'
+  ];
+
+  for (const endpoint of testEndpoints) {
+    try {
+      console.log(`Testing REI API endpoint: ${REI_API_BASE_URL}${endpoint}`);
+      const response = await reiApiClient.get(endpoint, { timeout: 5000 });
+      console.log(`✅ Successfully connected to REI API at ${endpoint}`);
+      return { connected: true, endpoint };
+    } catch (error: any) {
+      console.log(`❌ Failed to connect to ${endpoint}: ${error.message}`);
+      continue;
+    }
+  }
+
+  return { 
+    connected: false, 
+    error: 'Could not connect to any REI API endpoints' 
+  };
+};
+
+// Check API version
+export const checkApiVersion = async () => {
+  try {
+    const response = await reiApiClient.get('/version');
+    const apiVersion = response.data.version;
+    console.log(`Connected to REI API version: ${apiVersion}`);
+    return apiVersion;
+  } catch (error) {
+    console.warn('Could not determine API version:', error);
+    return null;
+  }
+};
+
 // REI Service with typed methods
 export const reiService = {
   // Test API connection and set mock mode accordingly
-  initialize: async (): Promise<void> => {
-    if (!USE_MOCKS) {
-      const isConnected = await testApiConnection();
-      USE_MOCKS = !isConnected;
+  initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
+    if (!REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here') {
+      USE_MOCKS = true;
+      return {
+        success: false,
+        message: 'No valid API key provided, using mock data',
+        usingMocks: true
+      };
+    }
+
+    const connectionTest = await testApiConnection();
+    USE_MOCKS = !connectionTest.connected;
+
+    if (connectionTest.connected) {
+      // Try to get API version
+      const version = await checkApiVersion();
+      return {
+        success: true,
+        message: `Connected to REI API${version ? ` (version: ${version})` : ''} at ${connectionTest.endpoint}`,
+        usingMocks: false
+      };
+    } else {
+      return {
+        success: false,
+        message: `Failed to connect to REI API: ${connectionTest.error}. Using mock data.`,
+        usingMocks: true
+      };
+    }
+  },
+
+  // Test connection manually
+  testConnection: async (): Promise<{ success: boolean; message: string; details?: any }> => {
+    try {
+      const result = await testApiConnection();
+      if (result.connected) {
+        return {
+          success: true,
+          message: `Successfully connected to REI API at ${result.endpoint}`,
+          details: { endpoint: result.endpoint, baseUrl: REI_API_BASE_URL }
+        };
+      } else {
+        return {
+          success: false,
+          message: result.error || 'Connection failed',
+          details: { baseUrl: REI_API_BASE_URL, testedEndpoints: ['/health', '/status', '/api/health', '/v1/health', '/'] }
+        };
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Connection test failed: ${error.message}`,
+        details: { error: error.message, baseUrl: REI_API_BASE_URL }
+      };
     }
   },
 
@@ -248,7 +584,7 @@ export const reiService = {
       // Use mock data for development
       const mockData = mockMarketData[symbol as keyof typeof mockMarketData];
       if (!mockData) {
-        throw new Error(`No mock data available for ${symbol}`);
+        throw new Error(`No mock data available for ${symbol}. Available symbols: ${Object.keys(mockMarketData).join(', ')}`);
       }
       
       // Simulate network delay
@@ -258,11 +594,28 @@ export const reiService = {
     }
     
     try {
-      // Use actual API in production
-      const response = await reiApiClient.get('/market/data', {
-        params: { symbol }
-      });
-      return response.data;
+      // Try different possible API routes
+      const possibleRoutes = [
+        `/market/${symbol}`,
+        `/market/data/${symbol}`,
+        `/api/market/${symbol}`,
+        `/v1/market/${symbol}`,
+        `/market/data?symbol=${symbol}`
+      ];
+
+      for (const route of possibleRoutes) {
+        try {
+          const response = await reiApiClient.get(route);
+          return response.data;
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            continue; // Try next route
+          }
+          throw error; // Other errors should be thrown
+        }
+      }
+      
+      throw new Error('No valid market data endpoint found');
     } catch (error) {
       console.warn('API call failed, falling back to mock data');
       USE_MOCKS = true;
@@ -277,40 +630,44 @@ export const reiService = {
       const mockSignal = mockTradingSignal[asset as keyof typeof mockTradingSignal];
       if (!mockSignal) {
         // Generate a basic signal for unknown assets
-        const marketData = await reiService.getMarketData(asset);
-        return {
-          asset,
-          currentPrice: marketData.price,
-          view: 'Neutral',
-          viewReason: 'Insufficient data for directional bias',
-          entryZone: {
-            min: marketData.price * 0.98,
-            max: marketData.price * 1.02,
-            reasoning: 'Current price zone with 2% buffer'
-          },
-          targets: [
-            marketData.price * 1.05,
-            marketData.price * 1.10,
-            marketData.price * 1.15
-          ],
-          stopLoss: {
-            price: marketData.price * 0.95,
-            reasoning: '5% stop loss below current price'
-          },
-          invalidation: 'Market structure change or major news event',
-          analysis: {
-            summary: 'Limited data available for comprehensive analysis',
-            details: 'Basic technical analysis based on current price action'
-          },
-          insights: {
-            driver: 'General market sentiment and technical factors',
-            chartBehavior: 'Price action analysis pending more data',
-            supportingSignals: ['Current price stability'],
-            contradictingSignals: ['Limited historical data'],
-            sentiment: 'neutral',
-            wildcard: 'Monitor for volume and momentum changes'
-          }
-        };
+        try {
+          const marketData = await reiService.getMarketData(asset);
+          return {
+            asset,
+            currentPrice: marketData.price,
+            view: 'Neutral',
+            viewReason: 'Insufficient data for directional bias',
+            entryZone: {
+              min: marketData.price * 0.98,
+              max: marketData.price * 1.02,
+              reasoning: 'Current price zone with 2% buffer'
+            },
+            targets: [
+              marketData.price * 1.05,
+              marketData.price * 1.10,
+              marketData.price * 1.15
+            ],
+            stopLoss: {
+              price: marketData.price * 0.95,
+              reasoning: '5% stop loss below current price'
+            },
+            invalidation: 'Market structure change or major news event',
+            analysis: {
+              summary: 'Limited data available for comprehensive analysis',
+              details: 'Basic technical analysis based on current price action'
+            },
+            insights: {
+              driver: 'General market sentiment and technical factors',
+              chartBehavior: 'Price action analysis pending more data',
+              supportingSignals: ['Current price stability'],
+              contradictingSignals: ['Limited historical data'],
+              sentiment: 'neutral',
+              wildcard: 'Monitor for volume and momentum changes'
+            }
+          };
+        } catch {
+          throw new Error(`No signal data available for ${asset}. Available assets: ${Object.keys(mockTradingSignal).join(', ')}`);
+        }
       }
       
       // Simulate network delay
@@ -320,11 +677,28 @@ export const reiService = {
     }
     
     try {
-      // Use actual API in production
-      const response = await reiApiClient.get('/trading/signal', {
-        params: { asset }
-      });
-      return response.data;
+      // Try different possible API routes
+      const possibleRoutes = [
+        `/signal/${asset}`,
+        `/trading/signal/${asset}`,
+        `/api/signal/${asset}`,
+        `/v1/signal/${asset}`,
+        `/trading/signal?asset=${asset}`
+      ];
+
+      for (const route of possibleRoutes) {
+        try {
+          const response = await reiApiClient.get(route);
+          return response.data;
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            continue; // Try next route
+          }
+          throw error; // Other errors should be thrown
+        }
+      }
+      
+      throw new Error('No valid trading signal endpoint found');
     } catch (error) {
       console.warn('API call failed, falling back to mock data');
       USE_MOCKS = true;
@@ -368,10 +742,28 @@ export const reiService = {
     }
     
     try {
-      const response = await reiApiClient.get('/market/historical', {
-        params: { symbol, timeframe, limit }
-      });
-      return response.data;
+      const possibleRoutes = [
+        `/historical/${symbol}`,
+        `/market/historical/${symbol}`,
+        `/api/historical/${symbol}`,
+        `/v1/historical/${symbol}`
+      ];
+
+      for (const route of possibleRoutes) {
+        try {
+          const response = await reiApiClient.get(route, {
+            params: { timeframe, limit }
+          });
+          return response.data;
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            continue; // Try next route
+          }
+          throw error; // Other errors should be thrown
+        }
+      }
+      
+      throw new Error('No valid historical data endpoint found');
     } catch (error) {
       console.warn('API call failed, falling back to mock data');
       USE_MOCKS = true;
@@ -397,16 +789,40 @@ export const reiService = {
     }
     
     try {
-      const response = await reiApiClient.get('/onchain/metrics', {
-        params: { blockchain, metric }
-      });
-      return response.data;
+      const possibleRoutes = [
+        `/onchain/${blockchain}/${metric}`,
+        `/api/onchain/${blockchain}/${metric}`,
+        `/v1/onchain/${blockchain}/${metric}`
+      ];
+
+      for (const route of possibleRoutes) {
+        try {
+          const response = await reiApiClient.get(route);
+          return response.data;
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            continue; // Try next route
+          }
+          throw error; // Other errors should be thrown
+        }
+      }
+      
+      throw new Error('No valid on-chain metrics endpoint found');
     } catch (error) {
       console.warn('API call failed, falling back to mock data');
       USE_MOCKS = true;
       return reiService.getOnChainMetrics(blockchain, metric);
     }
+  },
+
+  // Get current mock status
+  isUsingMocks: () => USE_MOCKS,
+
+  // Force enable/disable mocks
+  setMockMode: (useMocks: boolean) => {
+    USE_MOCKS = useMocks;
   }
 };
 
+export { enableDebugMode };
 export default reiService;
