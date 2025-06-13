@@ -286,6 +286,15 @@ let USE_MOCKS = !REI_API_KEY || !isValidSecretKey(REI_API_KEY);
 
 // Test API connection using the documented endpoints
 const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: string; error?: string }> => {
+  // In production, always use mock data due to CORS restrictions
+  if (import.meta.env.PROD) {
+    console.log('🌐 Production environment detected - using mock data due to CORS restrictions');
+    return { 
+      connected: false, 
+      error: 'Production deployment uses mock data due to CORS restrictions' 
+    };
+  }
+
   const client = import.meta.env.DEV ? devApiClient : reiApiClient;
   const basePath = import.meta.env.DEV ? '/rei' : '';
   
@@ -324,6 +333,16 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
 export const reiService = {
   // Test API connection and set mock mode accordingly
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
+    // In production, always use mock data due to CORS
+    if (import.meta.env.PROD) {
+      USE_MOCKS = true;
+      return {
+        success: false,
+        message: 'Production deployment - using mock data (CORS restrictions prevent direct API access)',
+        usingMocks: true
+      };
+    }
+
     // Check if we're using placeholder/invalid API configuration
     if (!REI_API_KEY) {
       USE_MOCKS = true;
