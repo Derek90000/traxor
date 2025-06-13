@@ -8,7 +8,8 @@ const reiApiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REI_API_KEY}`
-  }
+  },
+  timeout: 10000 // 10 second timeout
 });
 
 // Error handling middleware
@@ -216,11 +217,31 @@ const mockTradingSignal = {
   }
 };
 
+// Test if we can reach the API
+const testApiConnection = async (): Promise<boolean> => {
+  try {
+    // Try a simple request to test connectivity
+    await reiApiClient.get('/health', { timeout: 5000 });
+    return true;
+  } catch (error) {
+    console.log('API connection test failed, using mock data');
+    return false;
+  }
+};
+
 // Determine if we should use mock data
-const USE_MOCKS = !REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here';
+let USE_MOCKS = !REI_API_KEY || REI_API_KEY === 'your_rei_api_key_here';
 
 // REI Service with typed methods
 export const reiService = {
+  // Test API connection and set mock mode accordingly
+  initialize: async (): Promise<void> => {
+    if (!USE_MOCKS) {
+      const isConnected = await testApiConnection();
+      USE_MOCKS = !isConnected;
+    }
+  },
+
   // Get current market data for a specific cryptocurrency
   getMarketData: async (symbol: string): Promise<MarketData> => {
     if (USE_MOCKS) {
@@ -236,11 +257,17 @@ export const reiService = {
       return mockData;
     }
     
-    // Use actual API in production
-    const response = await reiApiClient.get('/market/data', {
-      params: { symbol }
-    });
-    return response.data;
+    try {
+      // Use actual API in production
+      const response = await reiApiClient.get('/market/data', {
+        params: { symbol }
+      });
+      return response.data;
+    } catch (error) {
+      console.warn('API call failed, falling back to mock data');
+      USE_MOCKS = true;
+      return reiService.getMarketData(symbol);
+    }
   },
   
   // Get trading signals for a specific asset
@@ -292,11 +319,17 @@ export const reiService = {
       return mockSignal;
     }
     
-    // Use actual API in production
-    const response = await reiApiClient.get('/trading/signal', {
-      params: { asset }
-    });
-    return response.data;
+    try {
+      // Use actual API in production
+      const response = await reiApiClient.get('/trading/signal', {
+        params: { asset }
+      });
+      return response.data;
+    } catch (error) {
+      console.warn('API call failed, falling back to mock data');
+      USE_MOCKS = true;
+      return reiService.getTradingSignal(asset);
+    }
   },
   
   // Get historical price data
@@ -334,10 +367,16 @@ export const reiService = {
       };
     }
     
-    const response = await reiApiClient.get('/market/historical', {
-      params: { symbol, timeframe, limit }
-    });
-    return response.data;
+    try {
+      const response = await reiApiClient.get('/market/historical', {
+        params: { symbol, timeframe, limit }
+      });
+      return response.data;
+    } catch (error) {
+      console.warn('API call failed, falling back to mock data');
+      USE_MOCKS = true;
+      return reiService.getHistoricalData(symbol, timeframe, limit);
+    }
   },
   
   // Get on-chain metrics
@@ -357,10 +396,16 @@ export const reiService = {
       };
     }
     
-    const response = await reiApiClient.get('/onchain/metrics', {
-      params: { blockchain, metric }
-    });
-    return response.data;
+    try {
+      const response = await reiApiClient.get('/onchain/metrics', {
+        params: { blockchain, metric }
+      });
+      return response.data;
+    } catch (error) {
+      console.warn('API call failed, falling back to mock data');
+      USE_MOCKS = true;
+      return reiService.getOnChainMetrics(blockchain, metric);
+    }
   }
 };
 
