@@ -7,6 +7,12 @@ export default defineConfig(({ mode }) => {
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, process.cwd(), '');
   
+  // Only include Authorization header if API key is provided
+  const proxyHeaders: Record<string, string> = {};
+  if (env.VITE_REI_API_KEY) {
+    proxyHeaders['Authorization'] = `Bearer ${env.VITE_REI_API_KEY}`;
+  }
+  
   return {
     plugins: [react()],
     optimizeDeps: {
@@ -18,9 +24,7 @@ export default defineConfig(({ mode }) => {
           target: 'https://api.reisearch.box',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/rei/, ''),
-          headers: {
-            'Authorization': `Bearer ${env.VITE_REI_API_KEY || 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a'}`
-          }
+          headers: proxyHeaders
         }
       }
     }
