@@ -39,7 +39,7 @@ import {
   X,
   ExternalLink
 } from 'lucide-react';
-import reigentService, { ChatCompletionRequest } from '../services/reigentService';
+import reiService, { REIChatRequest } from '../services/reiService';
 
 interface ResponseCard {
   id: string;
@@ -93,7 +93,7 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState('ask');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [reigentStatus, setReigentStatus] = useState<{ connected: boolean; message: string; usingMocks: boolean }>({
+  const [reiStatus, setReiStatus] = useState<{ connected: boolean; message: string; usingMocks: boolean }>({
     connected: false,
     message: 'Initializing...',
     usingMocks: true
@@ -136,36 +136,36 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize Reigent API connection
+  // Initialize REI API connection
   useEffect(() => {
     const initializeApi = async () => {
       try {
-        const result = await reigentService.initialize();
-        setReigentStatus({
+        const result = await reiService.initialize();
+        setReiStatus({
           connected: result.success,
           message: result.message,
           usingMocks: result.usingMocks
         });
         
         if (result.success) {
-          console.log('✅ Reigent API connected successfully');
+          console.log('✅ REI API connected successfully');
         } else {
           console.log('⚠️ Using mock data:', result.message);
         }
       } catch (error: any) {
-        setReigentStatus({
+        setReiStatus({
           connected: false,
           message: `Failed to initialize: ${error.message}`,
           usingMocks: true
         });
-        console.error('Failed to initialize Reigent API:', error);
+        console.error('Failed to initialize REI API:', error);
       }
     };
 
     initializeApi();
   }, []);
 
-  // Mock sources pool - Reigent API always included, others random
+  // Mock sources pool - REI API always included, others random
   const mockSources = [
     { name: 'CoinGecko Pro', url: 'https://coingecko.com' },
     { name: 'Glassnode Studio', url: 'https://glassnode.com' },
@@ -180,19 +180,19 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
   ];
 
   const getRandomSources = (count: number = 3) => {
-    // Always include Reigent API as the first source
-    const reigentSource = { name: 'Reigent API', url: 'https://api.reisearch.box' };
+    // Always include REI API as the first source
+    const reiSource = { name: 'REI Network API', url: 'https://api.reisearch.box' };
     
-    // Get random sources from the pool (excluding count for Reigent)
+    // Get random sources from the pool (excluding count for REI)
     const shuffled = [...mockSources].sort(() => 0.5 - Math.random());
     const randomSources = shuffled.slice(0, count - 1);
     
-    // Return with Reigent always first
-    return [reigentSource, ...randomSources];
+    // Return with REI always first
+    return [reiSource, ...randomSources];
   };
 
-  // Updated API call function using Reigent API
-  const callReigentAPI = async (userQuery: string): Promise<ResponseCard> => {
+  // Updated API call function using REI Network API
+  const callREIAPI = async (userQuery: string): Promise<ResponseCard> => {
     try {
       const currentDate = new Date();
       const formattedDate = currentDate.toLocaleDateString('en-US', { 
@@ -202,7 +202,7 @@ const Terminal: React.FC<TerminalProps> = ({ onBack }) => {
         day: 'numeric' 
       });
 
-      const chatRequest: ChatCompletionRequest = {
+      const chatRequest: REIChatRequest = {
         messages: [
           {
             role: 'system',
@@ -247,7 +247,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
         max_tokens: 800
       };
 
-      const response = await reigentService.chatCompletion(chatRequest);
+      const response = await reiService.chatWithAgent(chatRequest);
       let content = response.choices[0].message.content;
 
       // Remove ** formatting from content
@@ -327,7 +327,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
         allBullets.push(content.replace(/🧠|📈|🔍/g, '').replace(/---/g, '').trim());
       }
 
-      // Always use sources with Reigent API first
+      // Always use sources with REI API first
       const randomSources = getRandomSources(Math.floor(Math.random() * 3) + 2); // 2-4 sources
 
       return {
@@ -335,7 +335,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
         query: userQuery,
         headline: headline || `Crypto Signal — ${formattedDate}`,
         bullets: allBullets,
-        sentiment: reigentStatus.usingMocks ? 'Mock Data' : 'Reigent Network',
+        sentiment: reiStatus.usingMocks ? 'Mock Data' : 'REI Network',
         sources: randomSources.map(s => s.name),
         timestamp: new Date(),
         bookmarked: false,
@@ -351,9 +351,9 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
       };
 
     } catch (error) {
-      console.error('Reigent API call failed:', error);
+      console.error('REI API call failed:', error);
       
-      // Fallback to mock response with Reigent API always included
+      // Fallback to mock response with REI API always included
       const randomSources = getRandomSources(3);
       
       return {
@@ -387,7 +387,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
     setSidebarOpen(false); // Close sidebar on mobile when submitting
     
     try {
-      const newResponse = await callReigentAPI(query);
+      const newResponse = await callREIAPI(query);
       setResponses(prev => [newResponse, ...prev]);
       setQuery('');
       
@@ -443,7 +443,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-3 h-3 bg-[#FF7744] rounded-full animate-ping" />
                   <span className="text-[#FF7744] font-mono text-xs sm:text-sm font-medium">
-                    {reigentStatus.usingMocks ? 'Mock Engine processing...' : 'Reigent Network processing...'}
+                    {reiStatus.usingMocks ? 'Mock Engine processing...' : 'REI Network processing...'}
                   </span>
                 </div>
                 <div className="space-y-3">
@@ -471,7 +471,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
                         </span>
                         {response.sentiment && (
                           <span className={`inline-block px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium border ${
-                            reigentStatus.usingMocks 
+                            reiStatus.usingMocks 
                               ? 'bg-[#2B2417]/60 text-[#EBC26E] border-[#EBC26E]/20'
                               : 'bg-[#33211D]/60 text-[#FF7744] border-[#FF7744]/20'
                           }`}>
@@ -524,7 +524,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
                               target="_blank" 
                               rel="noopener noreferrer"
                               className={`text-xs px-2 sm:px-2.5 py-1 rounded-xl hover:bg-[#2B2417]/80 cursor-pointer transition-colors border flex items-center space-x-1 ${
-                                source.name === 'Reigent API' 
+                                source.name === 'REI Network API' 
                                   ? 'bg-[#33211D]/80 text-[#FF7744] border-[#FF7744]/30 hover:border-[#FF7744]/50' 
                                   : 'bg-[#2B2417]/60 text-[#EBC26E] border-[#EBC26E]/20 hover:border-[#EBC26E]/40'
                               }`}
@@ -551,13 +551,13 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
                   <Brain className="w-8 sm:w-10 h-8 sm:h-10 text-[#121212]" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-                  {reigentStatus.usingMocks ? 'Mock Signal Engine Active' : 'Reigent Signal Engine Active'}
+                  {reiStatus.usingMocks ? 'Mock Signal Engine Active' : 'REI Signal Engine Active'}
                 </h3>
                 <p className="text-gray-400 mb-2 max-w-md mx-auto text-sm sm:text-base px-4">
                   Ask about any crypto asset for live trading signals with real-time data synthesis.
                 </p>
                 <p className="text-xs text-gray-500 mb-6 sm:mb-8">
-                  Status: {reigentStatus.message}
+                  Status: {reiStatus.message}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto px-4">
                   {['BTC setup', 'ETH momentum', 'SOL breakout', 'HYPE signals'].map((suggestion, index) => (
@@ -728,15 +728,15 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">AI Model:</span>
-                    <span className={`font-medium text-sm sm:text-base ${reigentStatus.usingMocks ? 'text-[#EBC26E]' : 'text-green-400'}`}>
-                      {reigentStatus.usingMocks ? 'Mock Engine' : 'Reigent Network'}
+                    <span className={`font-medium text-sm sm:text-base ${reiStatus.usingMocks ? 'text-[#EBC26E]' : 'text-green-400'}`}>
+                      {reiStatus.usingMocks ? 'Mock Engine' : 'REI Network'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-400 text-sm sm:text-base">Signal Engine:</span>
-                    <span className={`flex items-center space-x-2 font-medium text-sm sm:text-base ${reigentStatus.connected ? 'text-green-400' : 'text-[#EBC26E]'}`}>
+                    <span className={`flex items-center space-x-2 font-medium text-sm sm:text-base ${reiStatus.connected ? 'text-green-400' : 'text-[#EBC26E]'}`}>
                       <Wifi className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>{reigentStatus.connected ? 'Connected' : 'Mock Mode'}</span>
+                      <span>{reiStatus.connected ? 'Connected' : 'Mock Mode'}</span>
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2">
@@ -779,7 +779,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
                 </h3>
                 <div className="space-y-3">
                   {[
-                    { name: 'Reigent API', status: reigentStatus.connected, primary: true },
+                    { name: 'REI Network API', status: reiStatus.connected, primary: true },
                     { name: 'CoinGecko API', status: true, primary: false },
                     { name: 'Glassnode Analytics', status: true, primary: false },
                     { name: 'DeFiLlama', status: true, primary: false },
@@ -860,7 +860,7 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
             </div>
             <div>
               <h1 className="font-bold text-lg sm:text-xl text-white">
-                {reigentStatus.usingMocks ? 'Traxor Mock Engine' : 'Traxor Reigent Engine'}
+                {reiStatus.usingMocks ? 'Traxor Mock Engine' : 'Traxor REI Engine'}
               </h1>
               <p className="text-xs text-gray-400">Engine v3.2.1</p>
             </div>
@@ -900,8 +900,8 @@ Focus on what's tradable and avoid general summaries. Analyze price action, rece
         {/* Status */}
         <div className="p-3 sm:p-4 border-t border-[#2A2B32]">
           <div className="flex items-center space-x-2 text-xs text-gray-400">
-            <div className={`w-2 h-2 rounded-full animate-pulse ${reigentStatus.connected ? 'bg-green-400' : 'bg-[#EBC26E]'}`}></div>
-            <span>{reigentStatus.connected ? 'Reigent Network Active' : 'Mock Engine Active'}</span>
+            <div className={`w-2 h-2 rounded-full animate-pulse ${reiStatus.connected ? 'bg-green-400' : 'bg-[#EBC26E]'}`}></div>
+            <span>{reiStatus.connected ? 'REI Network Active' : 'Mock Engine Active'}</span>
           </div>
         </div>
       </div>
