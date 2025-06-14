@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
-// HARDCODED KEYS FOR TESTING - Replace with your actual keys
-const REIGENT_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a'; // Your actual secret key
+// REPLACE WITH YOUR ACTUAL REIGENT SECRET KEY
+const REIGENT_SECRET = 'your_secret_key_here'; // Replace with your actual secret key from Reigent platform
 const REIGENT_PUBLIC = 'your_public_key_here'; // Replace with your actual public key (if needed)
 const REIGENT_BASE_URL = 'https://api.reisearch.box';
 
