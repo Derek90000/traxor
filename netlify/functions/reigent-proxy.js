@@ -32,14 +32,14 @@ exports.handler = async (event, context) => {
     const { endpoint, userToken, ...requestData } = body;
 
     // Get secret from environment variables - SECURE!
-    const REIGENT_SECRET = process.env.REIGENT_SECRET;
+    const REIGENT_SECRET = process.env.REIGENT_SECRET || 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
     
     // Use userToken if provided, otherwise use environment secret
     const authToken = userToken || REIGENT_SECRET;
     
     console.log('Netlify Function - Key check:', {
       hasUserToken: !!userToken,
-      hasEnvSecret: !!REIGENT_SECRET,
+      hasEnvSecret: !!process.env.REIGENT_SECRET,
       tokenLength: authToken ? authToken.length : 0,
       tokenPreview: authToken ? `${authToken.substring(0, 8)}...` : 'none',
       endpoint: endpoint
@@ -68,7 +68,7 @@ exports.handler = async (event, context) => {
         'Authorization': `Bearer ${authToken}`
       },
       body: endpoint.includes('/chat/completions') ? JSON.stringify(requestData) : undefined,
-      timeout: 30000 // 30 second timeout
+      timeout: 60000 // 60 second timeout
     });
 
     const data = await response.json();

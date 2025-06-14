@@ -171,7 +171,7 @@ const isValidSecretKey = (key: string): boolean => {
     return true;
   }
   
-  // Accept hex keys (64 character hex string)
+  // Accept hex keys (64 character hex string) - your format
   if (/^[a-f0-9]{64}$/i.test(key)) {
     return true;
   }
@@ -294,7 +294,10 @@ export const reigentService = {
       keyPreview: REIGENT_SECRET ? `${REIGENT_SECRET.substring(0, 8)}...` : 'No key',
       isValidFormat: isValidSecretKey(REIGENT_SECRET),
       isDev: import.meta.env.DEV,
-      isProd: import.meta.env.PROD
+      isProd: import.meta.env.PROD,
+      envVars: {
+        VITE_REIGENT_SECRET: import.meta.env.VITE_REIGENT_SECRET ? 'present' : 'missing'
+      }
     });
 
     // Check if we have a valid secret key format
