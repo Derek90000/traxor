@@ -2,11 +2,10 @@ import axios, { AxiosInstance } from 'axios';
 
 // ACTUAL REIGENT SECRET KEY
 const REIGENT_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
-const REIGENT_PUBLIC = 'your_public_key_here'; // Replace with your actual public key (if needed)
 const REIGENT_BASE_URL = 'https://api.reisearch.box';
 
 // Debug mode for troubleshooting
-let DEBUG_MODE = true; // Enabled by default for testing
+let DEBUG_MODE = true;
 
 export const enableDebugMode = () => {
   DEBUG_MODE = true;
@@ -20,17 +19,17 @@ const reigentApiClient = axios.create({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REIGENT_SECRET}`
   },
-  timeout: 120000 // 120 seconds maximum timeout
+  timeout: 60000 // Increased to 60 seconds to prevent timeouts
 });
 
 // Create a separate client for development proxy
 const devApiClient = axios.create({
-  baseURL: import.meta.env.DEV ? '' : REIGENT_BASE_URL, // Use proxy in dev, direct in prod
+  baseURL: import.meta.env.DEV ? '' : REIGENT_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REIGENT_SECRET}`
   },
-  timeout: 120000 // 120 seconds maximum timeout
+  timeout: 60000 // Increased to 60 seconds
 });
 
 // Production client using Netlify Functions
@@ -39,7 +38,7 @@ const prodApiClient = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 120000
+  timeout: 60000
 });
 
 // Debug interceptors
@@ -49,7 +48,6 @@ const addInterceptors = (client: AxiosInstance) => {
       console.log('Reigent API Request:', {
         url: request.url,
         method: request.method,
-        params: request.params,
         headers: {
           ...request.headers,
           Authorization: `Bearer ${REIGENT_SECRET.substring(0, 8)}...`
@@ -186,11 +184,6 @@ const isValidSecretKey = (key: string): boolean => {
   return false;
 };
 
-// Check if we have a public key (starts with pk_rei_)
-const isPublicKey = (key: string): boolean => {
-  return key && key.startsWith('pk_rei_');
-};
-
 // Determine if we should use mock data
 let USE_MOCKS = !REIGENT_SECRET || !isValidSecretKey(REIGENT_SECRET);
 
@@ -247,7 +240,15 @@ const testApiConnection = async (): Promise<{ connected: boolean; endpoint?: str
     if (error.message.includes('socket hang up') || error.code === 'ECONNRESET') {
       return { 
         connected: false, 
-        error: 'Connection terminated by server - likely invalid API key' 
+        error: 'Connection terminated by server - check API key validity' 
+      };
+    }
+    
+    // Check if it's a timeout error
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      return {
+        connected: false,
+        error: 'Request timeout - API server taking too long to respond'
       };
     }
     
