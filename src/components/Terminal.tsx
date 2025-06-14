@@ -39,7 +39,7 @@ import {
   X,
   ExternalLink
 } from 'lucide-react';
-import reiService, { REIChatRequest } from '../services/reiService';
+import reiService, { REIChatRequest } from '../services/reigentService';
 
 interface ResponseCard {
   id: string;
