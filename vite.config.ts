@@ -14,7 +14,7 @@ export default defineConfig(() => {
           target: 'https://api.reisearch.box',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/reigent/, ''),
-          // Remove headers completely - let axios handle authentication
+          // No hardcoded headers - let axios handle authentication
           configure: (proxy, options) => {
             proxy.on('error', (err, req, res) => {
               console.log('Proxy error:', err.message);

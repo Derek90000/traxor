@@ -1,11 +1,11 @@
 import axios, { AxiosInstance } from 'axios';
 
-// ACTUAL REIGENT SECRET KEY
-const REIGENT_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
+// Get secret from environment variables - NEVER hardcode secrets!
+const REIGENT_SECRET = import.meta.env.VITE_REIGENT_SECRET || '';
 const REIGENT_BASE_URL = 'https://api.reisearch.box';
 
 // Debug mode for troubleshooting
-let DEBUG_MODE = true;
+let DEBUG_MODE = false;
 
 export const enableDebugMode = () => {
   DEBUG_MODE = true;
@@ -19,7 +19,7 @@ const reigentApiClient = axios.create({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REIGENT_SECRET}`
   },
-  timeout: 60000 // Increased to 60 seconds to prevent timeouts
+  timeout: 60000 // 60 seconds to prevent timeouts
 });
 
 // Create a separate client for development proxy
@@ -29,7 +29,7 @@ const devApiClient = axios.create({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${REIGENT_SECRET}`
   },
-  timeout: 60000 // Increased to 60 seconds
+  timeout: 60000
 });
 
 // Production client using Netlify Functions
@@ -50,7 +50,7 @@ const addInterceptors = (client: AxiosInstance) => {
         method: request.method,
         headers: {
           ...request.headers,
-          Authorization: `Bearer ${REIGENT_SECRET.substring(0, 8)}...`
+          Authorization: REIGENT_SECRET ? `Bearer ${REIGENT_SECRET.substring(0, 8)}...` : 'No key'
         }
       });
     }
@@ -291,7 +291,7 @@ export const reigentService = {
     console.log('🔑 API Key Check:', {
       hasSecretKey: !!REIGENT_SECRET,
       keyLength: REIGENT_SECRET.length,
-      keyPreview: `${REIGENT_SECRET.substring(0, 8)}...`,
+      keyPreview: REIGENT_SECRET ? `${REIGENT_SECRET.substring(0, 8)}...` : 'No key',
       isValidFormat: isValidSecretKey(REIGENT_SECRET),
       isDev: import.meta.env.DEV,
       isProd: import.meta.env.PROD
@@ -302,7 +302,7 @@ export const reigentService = {
       USE_MOCKS = true;
       return {
         success: false,
-        message: `Invalid secret key format (length: ${REIGENT_SECRET.length}), using mock data`,
+        message: `Invalid or missing secret key (length: ${REIGENT_SECRET.length}), using mock data`,
         usingMocks: true
       };
     }

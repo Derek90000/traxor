@@ -31,15 +31,15 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     const { endpoint, userToken, ...requestData } = body;
 
-    // ACTUAL REIGENT SECRET KEY
-    const HARDCODED_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
+    // Get secret from environment variables - SECURE!
+    const REIGENT_SECRET = process.env.REIGENT_SECRET;
     
-    // Use userToken if provided, otherwise use hardcoded secret
-    const authToken = userToken || HARDCODED_SECRET;
+    // Use userToken if provided, otherwise use environment secret
+    const authToken = userToken || REIGENT_SECRET;
     
     console.log('Netlify Function - Key check:', {
       hasUserToken: !!userToken,
-      hasHardcodedSecret: !!HARDCODED_SECRET,
+      hasEnvSecret: !!REIGENT_SECRET,
       tokenLength: authToken ? authToken.length : 0,
       tokenPreview: authToken ? `${authToken.substring(0, 8)}...` : 'none',
       endpoint: endpoint
@@ -52,7 +52,7 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({ 
           error: 'No authentication token available',
-          debug: 'Missing secret key in Netlify function'
+          debug: 'Missing REIGENT_SECRET environment variable in Netlify'
         })
       };
     }
