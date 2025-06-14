@@ -31,28 +31,28 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     const { endpoint, userToken, ...requestData } = body;
 
-    // REPLACE WITH YOUR ACTUAL REIGENT SECRET KEY
-    const HARDCODED_SECRET = 'your_secret_key_here'; // Replace with your actual secret key from Reigent platform
+    // ACTUAL REIGENT SECRET KEY
+    const HARDCODED_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
     
     // Use userToken if provided, otherwise use hardcoded secret
     const authToken = userToken || HARDCODED_SECRET;
     
     console.log('Netlify Function - Key check:', {
       hasUserToken: !!userToken,
-      hasHardcodedSecret: !!HARDCODED_SECRET && HARDCODED_SECRET !== 'your_secret_key_here',
+      hasHardcodedSecret: !!HARDCODED_SECRET,
       tokenLength: authToken ? authToken.length : 0,
-      tokenPreview: authToken && authToken !== 'your_secret_key_here' ? `${authToken.substring(0, 8)}...` : 'placeholder',
+      tokenPreview: authToken ? `${authToken.substring(0, 8)}...` : 'none',
       endpoint: endpoint
     });
     
-    if (!authToken || authToken === 'your_secret_key_here') {
-      console.error('No valid authentication token found. Please replace the hardcoded secret key.');
+    if (!authToken) {
+      console.error('No valid authentication token found.');
       return {
         statusCode: 401,
         headers,
         body: JSON.stringify({ 
           error: 'No authentication token available',
-          debug: 'Please replace "your_secret_key_here" with your actual Reigent secret key in the Netlify function'
+          debug: 'Missing secret key in Netlify function'
         })
       };
     }

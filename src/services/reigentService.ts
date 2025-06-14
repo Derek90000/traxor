@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
-// REPLACE WITH YOUR ACTUAL REIGENT SECRET KEY
-const REIGENT_SECRET = 'your_secret_key_here'; // Replace with your actual secret key from Reigent platform
+// ACTUAL REIGENT SECRET KEY
+const REIGENT_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
 const REIGENT_PUBLIC = 'your_public_key_here'; // Replace with your actual public key (if needed)
 const REIGENT_BASE_URL = 'https://api.reisearch.box';
 
@@ -52,7 +52,7 @@ const addInterceptors = (client: AxiosInstance) => {
         params: request.params,
         headers: {
           ...request.headers,
-          Authorization: REIGENT_SECRET !== 'your_secret_key_here' ? `Bearer ${REIGENT_SECRET.substring(0, 8)}...` : 'Bearer [placeholder]'
+          Authorization: `Bearer ${REIGENT_SECRET.substring(0, 8)}...`
         }
       });
     }
@@ -192,7 +192,7 @@ const isPublicKey = (key: string): boolean => {
 };
 
 // Determine if we should use mock data
-let USE_MOCKS = !REIGENT_SECRET || REIGENT_SECRET === 'your_secret_key_here' || !isValidSecretKey(REIGENT_SECRET);
+let USE_MOCKS = !REIGENT_SECRET || !isValidSecretKey(REIGENT_SECRET);
 
 // Get the appropriate client based on environment
 const getClient = () => {
@@ -287,34 +287,14 @@ export const reigentService = {
   // Test API connection and set mock mode accordingly
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
     // Debug: Log key information (without exposing the actual key)
-    console.log('🔑 Hardcoded Key Check:', {
-      hasSecretKey: !!REIGENT_SECRET && REIGENT_SECRET !== 'your_secret_key_here',
+    console.log('🔑 API Key Check:', {
+      hasSecretKey: !!REIGENT_SECRET,
       keyLength: REIGENT_SECRET.length,
-      keyPreview: REIGENT_SECRET !== 'your_secret_key_here' ? `${REIGENT_SECRET.substring(0, 8)}...` : 'placeholder',
+      keyPreview: `${REIGENT_SECRET.substring(0, 8)}...`,
       isValidFormat: isValidSecretKey(REIGENT_SECRET),
       isDev: import.meta.env.DEV,
       isProd: import.meta.env.PROD
     });
-
-    // Check if we're using placeholder key
-    if (!REIGENT_SECRET || REIGENT_SECRET === 'your_secret_key_here') {
-      USE_MOCKS = true;
-      return {
-        success: false,
-        message: '⚠️ Please replace "your_secret_key_here" with your actual Reigent secret key',
-        usingMocks: true
-      };
-    }
-
-    // Check if we have a public key instead of secret key
-    if (isPublicKey(REIGENT_SECRET)) {
-      USE_MOCKS = true;
-      return {
-        success: false,
-        message: 'Public key detected - Reigent API requires secret key, using mock data',
-        usingMocks: true
-      };
-    }
 
     // Check if we have a valid secret key format
     if (!isValidSecretKey(REIGENT_SECRET)) {

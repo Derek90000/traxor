@@ -3,12 +3,12 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(() => {
-  // REPLACE WITH YOUR ACTUAL REIGENT SECRET KEY
-  const HARDCODED_SECRET = 'your_secret_key_here'; // Replace with your actual secret key from Reigent platform
+  // ACTUAL REIGENT SECRET KEY
+  const HARDCODED_SECRET = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
   
   // Only include Authorization header if we have a valid API key
   const proxyHeaders: Record<string, string> = {};
-  if (HARDCODED_SECRET && HARDCODED_SECRET !== 'your_secret_key_here') {
+  if (HARDCODED_SECRET) {
     proxyHeaders['Authorization'] = `Bearer ${HARDCODED_SECRET}`;
   }
   
