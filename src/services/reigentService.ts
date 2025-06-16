@@ -1,8 +1,5 @@
 import axios from 'axios';
 
-const REI_SECRET_KEY = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
-const REI_BASE_URL = 'https://api.reisearch.box';
-
 // Simple chat message interface
 export interface REIChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -29,30 +26,39 @@ export interface REIChatResponse {
   };
 }
 
-// Create axios instance for REI API
-const reiClient = axios.create({
-  baseURL: REI_BASE_URL,
-  headers: {
-    'Authorization': `Bearer ${REI_SECRET_KEY}`,
-    'Content-Type': 'application/json'
-  },
+// Create axios instance
+const apiClient = axios.create({
   timeout: 60000 // 60 seconds for LLM responses
 });
+
+// Get the correct API endpoint based on environment
+const getApiEndpoint = () => {
+  if (import.meta.env.PROD) {
+    // Production: use Netlify function
+    return '/.netlify/functions/rei-proxy';
+  } else {
+    // Development: use Netlify function (will work in dev too)
+    return '/.netlify/functions/rei-proxy';
+  }
+};
 
 // Simple REI service
 const reiService = {
   // Initialize and test connection
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
     try {
+      const endpoint = getApiEndpoint();
+      console.log(`Testing REI API connection via: ${endpoint}`);
+
       // Test the connection with a simple request
-      const testResponse = await reiClient.post('/v1/chat/completions', {
+      const testResponse = await apiClient.post(endpoint, {
         messages: [{ role: 'user', content: 'Hello' }],
         temperature: 0.7,
         max_tokens: 10
       });
 
       if (testResponse.status === 200) {
-        console.log('✅ REI API connected successfully');
+        console.log('✅ REI API connected successfully via proxy');
         return {
           success: true,
           message: 'Connected to REI Network API',
@@ -78,7 +84,9 @@ const reiService = {
   // Chat with the REI agent
   chatWithAgent: async (request: REIChatRequest): Promise<REIChatResponse> => {
     try {
-      const response = await reiClient.post('/v1/chat/completions', {
+      const endpoint = getApiEndpoint();
+      
+      const response = await apiClient.post(endpoint, {
         messages: request.messages,
         temperature: request.temperature || 0.7,
         max_tokens: request.max_tokens || 1000
