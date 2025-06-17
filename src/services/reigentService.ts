@@ -26,35 +26,85 @@ export interface REIChatResponse {
   };
 }
 
-// Create axios instance
+// Create axios instance for REI API
 const apiClient = axios.create({
-  timeout: 30000 // 30 seconds
+  baseURL: 'https://api.reisearch.box/v1',
+  timeout: 30000, // 30 seconds
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a`
+  }
 });
 
-// Simple REI service that uses mock data for now
+// REI service with real API integration
 const reiService = {
-  // Initialize - always returns success with mock data
+  // Initialize - test the connection
   initialize: async (): Promise<{ success: boolean; message: string; usingMocks: boolean }> => {
-    console.log('🎭 Initializing with mock data for development');
-    return {
-      success: true,
-      message: 'Mock Signal Engine Active',
-      usingMocks: true
-    };
+    try {
+      console.log('🔌 Testing REI API connection...');
+      
+      // Test with a simple message
+      const testRequest: REIChatRequest = {
+        messages: [
+          {
+            role: 'user',
+            content: 'Hello, are you working?'
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 100
+      };
+
+      const response = await apiClient.post('/chat/completions', testRequest);
+      
+      if (response.status === 200 && response.data.choices) {
+        console.log('✅ REI API connection successful');
+        return {
+          success: true,
+          message: 'REI Network Connected',
+          usingMocks: false
+        };
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('❌ REI API connection failed:', error.message);
+      console.log('🎭 Falling back to mock data');
+      
+      return {
+        success: false,
+        message: `REI API Error: ${error.message}`,
+        usingMocks: true
+      };
+    }
   },
 
-  // Chat with mock responses
+  // Chat with real REI API
   chatWithAgent: async (request: REIChatRequest): Promise<REIChatResponse> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+    try {
+      console.log('📡 Sending request to REI API...');
+      
+      const response = await apiClient.post('/chat/completions', request);
+      
+      if (response.status === 200 && response.data.choices) {
+        console.log('✅ REI API response received');
+        return response.data;
+      } else {
+        throw new Error('Invalid response format from REI API');
+      }
+    } catch (error: any) {
+      console.error('❌ REI API call failed:', error.message);
+      
+      // Fallback to mock response
+      console.log('🎭 Using mock response as fallback');
+      
+      const userMessage = request.messages[request.messages.length - 1];
+      const query = userMessage.content.toLowerCase();
 
-    const userMessage = request.messages[request.messages.length - 1];
-    const query = userMessage.content.toLowerCase();
+      let mockResponse = '';
 
-    let mockResponse = '';
-
-    if (query.includes('btc') || query.includes('bitcoin')) {
-      mockResponse = `🧠 Bitcoin Signal Analysis — ${new Date().toLocaleDateString()}
+      if (query.includes('btc') || query.includes('bitcoin')) {
+        mockResponse = `🧠 Bitcoin Signal Analysis — ${new Date().toLocaleDateString()}
 
 📈 Asset: BTC
 
@@ -69,8 +119,8 @@ const reiService = {
 • Sideways consolidation with decreasing volatility suggests coiling for next move
 • Strong support at 105k level with whale accumulation continuing
 • Resistance at 110k proving strong with holiday season typically lower volume`;
-    } else if (query.includes('eth') || query.includes('ethereum')) {
-      mockResponse = `🧠 Ethereum Signal Analysis — ${new Date().toLocaleDateString()}
+      } else if (query.includes('eth') || query.includes('ethereum')) {
+        mockResponse = `🧠 Ethereum Signal Analysis — ${new Date().toLocaleDateString()}
 
 📈 Asset: ETH
 
@@ -85,72 +135,8 @@ const reiService = {
 • ETH/BTC ratio declining showing relative weakness
 • Lower highs and lower lows pattern forming with weak momentum
 • Gas fees remaining low indicating reduced network usage`;
-    } else if (query.includes('sol') || query.includes('solana')) {
-      mockResponse = `🧠 Solana Signal Analysis — ${new Date().toLocaleDateString()}
-
-📈 Asset: SOL
-
-• 💡 View: Bearish → Breaking below key support with increasing selling pressure
-• 🎯 Entry Zone: $155.20 to $160.80 (short)
-• 💰 Take Profits: TP1 $145.00 → TP2 $135.50 → TP3 $125.00
-• 🛑 Stop Loss: $165.00 (above recent swing high)
-• 🚨 Invalidate if: Daily close above 165.00 or BTC breaks above 110k with strength
-
-🔍 Insights:
-• Broader crypto market weakness and profit-taking affecting momentum
-• Break below ascending triangle support with volume confirmation
-• RSI showing bearish momentum with volume increasing on red candles
-• Strong support at 150 psychological level could provide bounce opportunity`;
-    } else if (query.includes('hype')) {
-      mockResponse = `🧠 HYPE Token Signal Analysis — ${new Date().toLocaleDateString()}
-
-📈 Asset: HYPE
-
-• 💡 View: Bullish → Strong momentum despite broader market weakness
-• 🎯 Entry Zone: $40.50 to $42.00
-• 💰 Take Profits: TP1 $45.00 → TP2 $48.50 → TP3 $52.00
-• 🛑 Stop Loss: $38.50 (below key support)
-• 🚨 Invalidate if: Volume drops below 500M or BTC crashes below 105k
-
-🔍 Insights:
-• New token with strong community backing and viral momentum
-• High volume suggesting institutional interest despite recent launch
-• Social sentiment extremely bullish with growing holder base
-• Risk management crucial due to high volatility and newness`;
-    } else if (query.includes('moodeng')) {
-      mockResponse = `🧠 MOODENG Signal Analysis — ${new Date().toLocaleDateString()}
-
-📈 Asset: MOODENG
-
-• 💡 View: Bearish → Meme coin correction after initial pump
-• 🎯 Entry Zone: $0.175 to $0.185 (bounce play)
-• 💰 Take Profits: TP1 $0.195 → TP2 $0.210 → TP3 $0.225
-• 🛑 Stop Loss: $0.165 (below recent low)
-• 🚨 Invalidate if: Volume stays below 5M or broader meme sector weakness
-
-🔍 Insights:
-• Typical meme coin volatility with -11% move creating oversold conditions
-• Social media buzz still strong suggesting potential bounce
-• Low market cap means high risk/high reward potential
-• Watch for whale movements and social sentiment shifts`;
-    } else if (query.includes('pnut')) {
-      mockResponse = `🧠 PNUT Signal Analysis — ${new Date().toLocaleDateString()}
-
-📈 Asset: PNUT
-
-• 💡 View: Neutral → Oversold bounce potential after sharp decline
-• 🎯 Entry Zone: $0.255 to $0.265
-• 💰 Take Profits: TP1 $0.280 → TP2 $0.295 → TP3 $0.315
-• 🛑 Stop Loss: $0.245 (below recent support)
-• 🚨 Invalidate if: Breaks below $0.24 or meme sector continues weakness
-
-🔍 Insights:
-• Sharp -9.4% decline creating potential oversold bounce setup
-• Meme coin sector showing mixed signals with selective strength
-• Volume still decent suggesting some institutional interest remains
-• Risk management essential due to high volatility nature`;
-    } else {
-      mockResponse = `🧠 Crypto Market Analysis — ${new Date().toLocaleDateString()}
+      } else {
+        mockResponse = `🧠 Crypto Market Analysis — ${new Date().toLocaleDateString()}
 
 📈 Market Overview
 
@@ -165,22 +151,23 @@ const reiService = {
 • Altcoins showing mixed performance with sector rotation ongoing
 • Meme coins experiencing typical high volatility corrections
 • Holiday season liquidity creating exaggerated moves in both directions`;
-    }
-
-    return {
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: mockResponse
-        },
-        finish_reason: 'stop'
-      }],
-      usage: {
-        prompt_tokens: 50,
-        completion_tokens: 200,
-        total_tokens: 250
       }
-    };
+
+      return {
+        choices: [{
+          message: {
+            role: 'assistant',
+            content: mockResponse
+          },
+          finish_reason: 'stop'
+        }],
+        usage: {
+          prompt_tokens: 50,
+          completion_tokens: 200,
+          total_tokens: 250
+        }
+      };
+    }
   }
 };
 
