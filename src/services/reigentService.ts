@@ -26,13 +26,12 @@ export interface REIChatResponse {
   };
 }
 
-// Create axios instance for REI API
+// Create axios instance for REI API via Netlify proxy
 const apiClient = axios.create({
-  baseURL: 'https://api.reisearch.box/v1',
+  baseURL: '/api',
   timeout: 30000, // 30 seconds
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a`
+    'Content-Type': 'application/json'
   }
 });
 
