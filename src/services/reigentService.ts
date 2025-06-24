@@ -28,7 +28,7 @@ export interface REIChatResponse {
 
 // Create axios instance for REI API via Netlify proxy
 const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: '/.netlify/functions',
   timeout: 30000, // 30 seconds
   headers: {
     'Content-Type': 'application/json'
@@ -54,7 +54,7 @@ const reiService = {
         max_tokens: 100
       };
 
-      const response = await apiClient.post('/chat/completions', testRequest);
+      const response = await apiClient.post('/rei-proxy', testRequest);
       
       if (response.status === 200 && response.data.choices) {
         console.log('✅ REI API connection successful');
@@ -83,7 +83,7 @@ const reiService = {
     try {
       console.log('📡 Sending request to REI API...');
       
-      const response = await apiClient.post('/chat/completions', request);
+      const response = await apiClient.post('/rei-proxy', request);
       
       if (response.status === 200 && response.data.choices) {
         console.log('✅ REI API response received');

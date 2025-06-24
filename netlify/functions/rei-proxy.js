@@ -30,8 +30,8 @@ exports.handler = async (event, context) => {
   try {
     const requestBody = JSON.parse(event.body);
     
-    // Use the hardcoded secret key
-    const REI_SECRET_KEY = 'f37b4018b61af7f466844eb436cc378c842ebcfa45aecd21f49c434f0fd2442a';
+    // Use the agent secret key
+    const REI_SECRET_KEY = 'bbd6815ca3a09c84e28294d4971b7f5e5dc3058e75ec10a2caabeb40579ef3cd';
     
     console.log('Making request to REI API...');
 
