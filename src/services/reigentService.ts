@@ -28,7 +28,7 @@ export interface REIChatResponse {
 
 // Create axios instance for REI API via Netlify proxy
 const apiClient = axios.create({
-  baseURL: '/.netlify/functions',
+  baseURL: '/api',
   timeout: 30000, // 30 seconds
   headers: {
     'Content-Type': 'application/json'
